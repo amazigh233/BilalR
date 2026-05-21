@@ -2,6 +2,10 @@ namespace Booking.Domain.Restaurants;
 
 public sealed class OpeningHour
 {
+    private OpeningHour()
+    {
+    }
+
     public OpeningHour(DayOfWeek dayOfWeek, TimeOnly opensAt, TimeOnly closesAt)
     {
         if (closesAt <= opensAt)

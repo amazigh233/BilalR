@@ -29,7 +29,7 @@ WordPress is niet de hoofd-database. Een toekomstige WordPress-plugin is alleen 
 
 ## Tech stack
 
-- .NET 9
+- .NET 10
 - ASP.NET Core Web API
 - Blazor Web App
 - EF Core

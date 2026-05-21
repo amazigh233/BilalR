@@ -18,7 +18,7 @@ Output:
 Beslissingen:
 
 - het platform wordt centraal gebouwd;
-- de backend wordt een .NET 9 Web API;
+- de backend wordt een .NET 10 Web API;
 - data wordt opgeslagen in een centrale SQL Server database;
 - het dashboard wordt gebouwd met Blazor;
 - WordPress wordt later alleen een client van de API;

@@ -4,6 +4,11 @@ public sealed class Restaurant
 {
     private readonly List<OpeningHour> _openingHours = [];
 
+    private Restaurant()
+    {
+        Name = string.Empty;
+    }
+
     public Restaurant(string name, string? phoneNumber = null, string? email = null)
     {
         if (string.IsNullOrWhiteSpace(name))

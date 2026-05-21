@@ -4,6 +4,11 @@ namespace Booking.Domain.Reservations;
 
 public sealed class Reservation
 {
+    private Reservation()
+    {
+        Customer = null!;
+    }
+
     public Reservation(
         Guid restaurantId,
         Customer customer,

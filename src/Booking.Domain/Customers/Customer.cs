@@ -2,6 +2,12 @@ namespace Booking.Domain.Customers;
 
 public sealed class Customer
 {
+    private Customer()
+    {
+        Name = string.Empty;
+        Email = string.Empty;
+    }
+
     public Customer(string name, string email, string? phoneNumber = null)
     {
         if (string.IsNullOrWhiteSpace(name))

@@ -1,0 +1,6 @@
+{
+  "terminal.integrated.env.osx": {
+    "DOTNET_ROOT": "${workspaceFolder}/.dotnet-local",
+    "PATH": "${workspaceFolder}/.dotnet-local:${env:PATH}"
+  }
+}

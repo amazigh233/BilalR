@@ -23,7 +23,7 @@ Het platform bestaat uit de volgende hoofdcomponenten:
 
 ## Tech stack
 
-- .NET 9
+- .NET 10
 - ASP.NET Core Web API
 - Blazor Web App
 - EF Core

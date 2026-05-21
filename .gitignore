@@ -218,6 +218,10 @@ csx/
 
 # Microsoft Azure Emulator
 ecf/
+
+# Repo-local SDK installed by dotnet-install for consistent net10 builds
+.dotnet-local/
+.tools/
 rcf/
 
 # Windows Store app package directories and files

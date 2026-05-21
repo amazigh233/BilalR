@@ -2,6 +2,12 @@ namespace Booking.Domain.Notifications;
 
 public sealed class NotificationLog
 {
+    private NotificationLog()
+    {
+        RecipientEmail = string.Empty;
+        Subject = string.Empty;
+    }
+
     public NotificationLog(
         Guid reservationId,
         Guid restaurantId,
