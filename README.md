@@ -36,17 +36,46 @@ WordPress is niet de hoofd-database. Een toekomstige WordPress-plugin is alleen 
 - SQL Server
 - Clean Architecture light
 
-## Projectstructuur
+## Solution-structuur
 
-De beoogde solution-structuur:
+De solution gebruikt een lichte Clean Architecture-opzet:
 
 ```text
+Booking.sln
 src/
   Booking.Domain/
   Booking.Application/
   Booking.Infrastructure/
   Booking.Api/
   Booking.BlazorApp/
+```
+
+Projectreferenties:
+
+- `Booking.Domain`: geen projectreferenties.
+- `Booking.Application`: verwijst naar `Booking.Domain`.
+- `Booking.Infrastructure`: verwijst naar `Booking.Application` en `Booking.Domain`.
+- `Booking.Api`: verwijst naar `Booking.Application` en `Booking.Infrastructure`.
+- `Booking.BlazorApp`: heeft in fase 1 geen projectreferenties en krijgt later communicatie via de API.
+
+## Lokaal bouwen en draaien
+
+Build de volledige solution:
+
+```bash
+dotnet build Booking.sln
+```
+
+Run de centrale API:
+
+```bash
+dotnet run --project src/Booking.Api/Booking.Api.csproj
+```
+
+Run de Blazor app:
+
+```bash
+dotnet run --project src/Booking.BlazorApp/Booking.BlazorApp.csproj
 ```
 
 ## MVP 1
@@ -61,4 +90,6 @@ MVP 1 is bewust klein gehouden. De scope staat vast en wordt beschreven in [MVP_
 
 ## Status
 
-Fase 0: productrichting, scope en architectuur vastleggen.
+Fase 0: productrichting, scope en architectuur vastgelegd.
+
+Fase 1: solution en basisstructuur aangemaakt.

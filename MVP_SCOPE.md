@@ -104,3 +104,7 @@ Nieuwe ideeen of wensen worden niet automatisch toegevoegd aan MVP 1.
 Als een wens niet direct nodig is voor de onderdelen hierboven, gaat deze naar de roadmap of backlog voor later.
 
 Het doel van MVP 1 is om snel te valideren of lokale ondernemers waarde halen uit een centraal reserveringssysteem.
+
+## Beslisregel
+
+Als een nieuwe feature niet nodig is om een reservering aan te maken, te bekijken of van status te wijzigen, gaat deze naar "Later" en niet naar MVP 1.
