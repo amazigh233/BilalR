@@ -28,7 +28,7 @@ public sealed class AvailabilityService(IRestaurantRepository restaurantReposito
         var restaurant = await restaurantRepository.GetByIdAsync(restaurantId, cancellationToken);
         if (restaurant is null)
         {
-            return new AvailabilityResult(false, "Restaurant does not exist.");
+            throw new KeyNotFoundException("Restaurant was not found.");
         }
 
         var openingHours = await restaurantRepository.GetOpeningHoursAsync(restaurantId, cancellationToken);

@@ -1,14 +1,44 @@
+using System.Text.Json.Serialization;
+using Booking.Application.Availability;
+using Booking.Application.OpeningHours;
+using Booking.Application.Reservations;
+using Booking.Application.Restaurants;
+using Booking.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddScoped<CreateRestaurantUseCase>();
+builder.Services.AddScoped<GetRestaurantUseCase>();
+builder.Services.AddScoped<SetOpeningHoursUseCase>();
+builder.Services.AddScoped<GetOpeningHoursUseCase>();
+builder.Services.AddScoped<CheckAvailabilityUseCase>();
+builder.Services.AddScoped<CreateReservationUseCase>();
+builder.Services.AddScoped<GetReservationsUseCase>();
+builder.Services.AddScoped<GetReservationUseCase>();
+builder.Services.AddScoped<ChangeReservationStatusUseCase>();
+
+builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
+
+app.MapControllers();
 
 app.Run();
