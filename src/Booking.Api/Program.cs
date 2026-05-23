@@ -18,6 +18,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<CreateRestaurantUseCase>();
+builder.Services.AddScoped<GetRestaurantsUseCase>();
 builder.Services.AddScoped<GetRestaurantUseCase>();
 builder.Services.AddScoped<SetOpeningHoursUseCase>();
 builder.Services.AddScoped<GetOpeningHoursUseCase>();

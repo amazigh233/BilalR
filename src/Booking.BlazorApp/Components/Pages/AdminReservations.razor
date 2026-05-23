@@ -1,0 +1,231 @@
+@page "/admin/restaurants/{RestaurantId:guid}/reservations"
+@rendermode InteractiveServer
+@inject RestaurantApiClient RestaurantApi
+@inject ReservationApiClient ReservationApi
+
+<PageTitle>Reserveringen</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Reserveringen</p>
+        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
+        <p class="text-muted mb-0">Bekijk reserveringen en wijzig de status.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/admin/restaurants">Terug naar restaurants</a>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<section class="content-section">
+    <div class="filters">
+        <div class="form-field">
+            <label for="reservation-date-filter">Datum</label>
+            <input id="reservation-date-filter"
+                   class="form-control"
+                   type="date"
+                   value="@_dateFilter"
+                   @onchange="eventArgs => _dateFilter = eventArgs.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="form-field">
+            <label for="reservation-status-filter">Status</label>
+            <select id="reservation-status-filter" class="form-select" @bind="_statusFilter">
+                <option value="">Alle statussen</option>
+                @foreach (var status in Enum.GetValues<ReservationStatus>())
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+        </div>
+        <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="ClearFilters">Filters wissen</button>
+        <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Reserveringen laden...</div>
+}
+else
+{
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Overzicht</h2>
+            <span class="text-muted small">@FilteredReservations.Count() gevonden</span>
+        </div>
+
+        @if (!FilteredReservations.Any())
+        {
+            <p class="empty-state">Geen reserveringen gevonden.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Klant</th>
+                            <th>Personen</th>
+                            <th>Status</th>
+                            <th>Opmerking</th>
+                            <th class="text-end">Wijzigen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reservation in FilteredReservations)
+                        {
+                            <tr>
+                                <td>@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</td>
+                                <td>
+                                    <strong>@reservation.CustomerName</strong>
+                                    <div class="text-muted small">@reservation.CustomerEmail</div>
+                                    <div class="text-muted small">@(reservation.CustomerPhoneNumber ?? "-")</div>
+                                </td>
+                                <td>@reservation.PartySize</td>
+                                <td><span class="status-pill">@reservation.Status</span></td>
+                                <td class="reservation-note">@(string.IsNullOrWhiteSpace(reservation.Note) ? "-" : reservation.Note)</td>
+                                <td>
+                                    <div class="table-actions">
+                                        @foreach (var status in ChangeableStatuses)
+                                        {
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    type="button"
+                                                    disabled="@IsStatusButtonDisabled(reservation, status)"
+                                                    @onclick="() => ChangeStatusAsync(reservation.Id, status)">
+                                                @GetStatusLabel(status)
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter]
+    public Guid RestaurantId { get; set; }
+
+    private static readonly ReservationStatus[] ChangeableStatuses =
+    [
+        ReservationStatus.Confirmed,
+        ReservationStatus.Cancelled,
+        ReservationStatus.NoShow
+    ];
+
+    private RestaurantDto? _restaurant;
+    private List<ReservationDto> _reservations = [];
+    private readonly HashSet<Guid> _updatingReservationIds = [];
+    private bool _isLoading = true;
+    private string _dateFilter = string.Empty;
+    private string _statusFilter = string.Empty;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private IEnumerable<ReservationDto> FilteredReservations
+    {
+        get
+        {
+            var query = _reservations.AsEnumerable();
+
+            if (DateOnly.TryParse(_dateFilter, out var date))
+            {
+                query = query.Where(reservation =>
+                    DateOnly.FromDateTime(reservation.ReservationDateTime) == date);
+            }
+
+            if (Enum.TryParse<ReservationStatus>(_statusFilter, out var status))
+            {
+                query = query.Where(reservation => reservation.Status == status);
+            }
+
+            return query.OrderBy(reservation => reservation.ReservationDateTime);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _restaurant = await RestaurantApi.GetByIdAsync(RestaurantId);
+            _reservations = (await ReservationApi.GetByRestaurantAsync(RestaurantId)).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ChangeStatusAsync(Guid reservationId, ReservationStatus status)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _updatingReservationIds.Add(reservationId);
+
+        try
+        {
+            var updated = await ReservationApi.ChangeStatusAsync(reservationId, status);
+            var index = _reservations.FindIndex(reservation => reservation.Id == reservationId);
+            if (index >= 0)
+            {
+                _reservations[index] = updated;
+            }
+
+            _successMessage = "Status bijgewerkt.";
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _updatingReservationIds.Remove(reservationId);
+        }
+    }
+
+    private bool IsStatusButtonDisabled(ReservationDto reservation, ReservationStatus status)
+    {
+        return reservation.Status == status || _updatingReservationIds.Contains(reservation.Id);
+    }
+
+    private void ClearFilters()
+    {
+        _dateFilter = string.Empty;
+        _statusFilter = string.Empty;
+    }
+
+    private static string GetStatusLabel(ReservationStatus status)
+    {
+        return status switch
+        {
+            ReservationStatus.Confirmed => "Bevestigen",
+            ReservationStatus.Cancelled => "Annuleren",
+            ReservationStatus.NoShow => "No-show",
+            _ => status.ToString()
+        };
+    }
+}

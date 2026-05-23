@@ -1,7 +1,23 @@
-﻿@page "/"
+@page "/"
+@rendermode InteractiveServer
 
 <PageTitle>Booking</PageTitle>
 
-<h1>Centraal reserveringsplatform</h1>
+<section class="page-header">
+    <div>
+        <p class="eyebrow">MVP 1</p>
+        <h1>Centraal reserveringsplatform</h1>
+        <p class="text-muted mb-0">Beheer restaurants, openingstijden en reserveringen vanuit een eenvoudige Blazor UI.</p>
+    </div>
+</section>
 
-<p>Basisstructuur voor het Blazor dashboard en de publieke booking page.</p>
+<div class="action-grid">
+    <a class="action-card" href="/admin">
+        <span class="action-card-title">Dashboard</span>
+        <span>Ga naar de beheeromgeving.</span>
+    </a>
+    <a class="action-card" href="/admin/restaurants">
+        <span class="action-card-title">Restaurants</span>
+        <span>Maak restaurants aan en open de beheerlinks.</span>
+    </a>
+</div>

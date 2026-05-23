@@ -35,7 +35,8 @@ public sealed class ReservationsController(
                     new CustomerRequest(
                         request.Customer.Name,
                         request.Customer.Email,
-                        request.Customer.PhoneNumber)),
+                        request.Customer.PhoneNumber),
+                    request.Note),
                 cancellationToken);
 
             var apiResponse = ToApiResponse(response);
@@ -182,6 +183,7 @@ public sealed class ReservationsController(
             response.CustomerPhoneNumber,
             response.ReservationDateTime,
             response.PartySize,
+            response.Note,
             response.Status,
             response.CreatedAtUtc);
     }

@@ -1,0 +1,197 @@
+@page "/booking/{RestaurantId:guid}"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using System.Globalization
+@inject RestaurantApiClient RestaurantApi
+@inject AvailabilityApiClient AvailabilityApi
+@inject ReservationApiClient ReservationApi
+
+<PageTitle>Reserveren</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Reserveren</p>
+        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
+        <p class="text-muted mb-0">Maak een reservering via de centrale booking API.</p>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Restaurant laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_loadErrorMessage))
+{
+    <div class="alert alert-danger">@_loadErrorMessage</div>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(_successMessage))
+    {
+        <div class="alert alert-success">@_successMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+
+    <section class="booking-shell">
+        <EditForm Model="_form" FormName="public-booking" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="customer-name">Naam</label>
+                    <InputText id="customer-name" class="form-control" @bind-Value="_form.CustomerName" />
+                </div>
+
+                <div class="form-field">
+                    <label for="customer-phone">Telefoon</label>
+                    <InputText id="customer-phone" class="form-control" @bind-Value="_form.PhoneNumber" />
+                </div>
+
+                <div class="form-field">
+                    <label for="customer-email">E-mail</label>
+                    <InputText id="customer-email" class="form-control" @bind-Value="_form.Email" />
+                </div>
+
+                <div class="form-field">
+                    <label for="party-size">Aantal personen</label>
+                    <InputNumber id="party-size" class="form-control" @bind-Value="_form.PartySize" />
+                </div>
+
+                <div class="form-field">
+                    <label for="reservation-date">Datum</label>
+                    <InputDate id="reservation-date" class="form-control" @bind-Value="_form.Date" />
+                </div>
+
+                <div class="form-field">
+                    <label for="reservation-time">Tijd</label>
+                    <input id="reservation-time"
+                           class="form-control"
+                           type="time"
+                           value="@_form.Time"
+                           @onchange="eventArgs => _form.Time = eventArgs.Value?.ToString() ?? string.Empty" />
+                </div>
+            </div>
+
+            <div class="form-field">
+                <label for="reservation-note">Opmerking</label>
+                <InputTextArea id="reservation-note" class="form-control" rows="4" @bind-Value="_form.Note" />
+            </div>
+
+            <button class="btn btn-primary booking-submit" type="submit" disabled="@_isSubmitting">
+                @(_isSubmitting ? "Versturen..." : "Reservering versturen")
+            </button>
+        </EditForm>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public Guid RestaurantId { get; set; }
+
+    private RestaurantDto? _restaurant;
+    private BookingForm _form = new();
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private string? _loadErrorMessage;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _restaurant = await RestaurantApi.GetByIdAsync(RestaurantId);
+        }
+        catch (ApiClientException exception)
+        {
+            _loadErrorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            if (!TimeOnly.TryParseExact(
+                _form.Time,
+                "HH:mm",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var time))
+            {
+                _errorMessage = "Controleer de tijd.";
+                return;
+            }
+
+            var reservationDateTime = _form.Date.Date + time.ToTimeSpan();
+            var availability = await AvailabilityApi.CheckAsync(
+                RestaurantId,
+                reservationDateTime,
+                _form.PartySize);
+
+            if (!availability.IsAvailable)
+            {
+                _errorMessage = availability.Reason ?? "Dit tijdstip is niet beschikbaar.";
+                return;
+            }
+
+            var reservation = await ReservationApi.CreateAsync(new CreateReservationRequest(
+                RestaurantId,
+                reservationDateTime,
+                _form.PartySize,
+                new CustomerRequest(
+                    _form.CustomerName,
+                    _form.Email,
+                    _form.PhoneNumber),
+                _form.Note));
+
+            _successMessage = $"Reservering ontvangen voor {reservation.ReservationDateTime:dd-MM-yyyy HH:mm}.";
+            _form = new BookingForm();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class BookingForm
+    {
+        [Required(ErrorMessage = "Naam is verplicht.")]
+        public string CustomerName { get; set; } = string.Empty;
+
+        public string? PhoneNumber { get; set; }
+
+        [Required(ErrorMessage = "E-mail is verplicht.")]
+        [EmailAddress(ErrorMessage = "Gebruik een geldig e-mailadres.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required]
+        public DateTime Date { get; set; } = DateTime.Today;
+
+        [Required(ErrorMessage = "Tijd is verplicht.")]
+        public string Time { get; set; } = "19:00";
+
+        [Range(1, 50, ErrorMessage = "Aantal personen moet minimaal 1 zijn.")]
+        public int PartySize { get; set; } = 2;
+
+        [StringLength(1000, ErrorMessage = "Opmerking mag maximaal 1000 tekens zijn.")]
+        public string? Note { get; set; }
+    }
+}

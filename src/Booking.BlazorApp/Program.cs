@@ -1,10 +1,23 @@
 using Booking.BlazorApp.Components;
+using Booking.BlazorApp.ApiClients;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+var bookingApiBaseUrl = builder.Configuration["BookingApi:BaseUrl"]
+    ?? "http://localhost:5086";
+
+builder.Services.AddHttpClient<RestaurantApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<ReservationApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<OpeningHoursApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<AvailabilityApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
 
 var app = builder.Build();
 

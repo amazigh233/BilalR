@@ -11,5 +11,6 @@ public sealed record ReservationApiResponse(
     string? CustomerPhoneNumber,
     DateTime ReservationDateTime,
     int PartySize,
+    string? Note,
     ReservationStatus Status,
     DateTime CreatedAtUtc);

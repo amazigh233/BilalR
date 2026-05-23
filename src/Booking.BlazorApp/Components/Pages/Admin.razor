@@ -1,0 +1,87 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject RestaurantApiClient RestaurantApi
+
+<PageTitle>Admin dashboard</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Dashboard</h1>
+        <p class="text-muted mb-0">Snel naar restaurants en reserveringen.</p>
+    </div>
+    <a class="btn btn-primary" href="/admin/restaurants">Restaurants beheren</a>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Dashboard laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">Restaurants</span>
+            <strong>@_restaurants.Count</strong>
+        </div>
+        <a class="stat-card stat-link" href="/admin/restaurants">
+            <span class="stat-label">Actie</span>
+            <strong>Restaurant aanmaken</strong>
+        </a>
+    </div>
+
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Recente restaurants</h2>
+        </div>
+
+        @if (_restaurants.Count == 0)
+        {
+            <p class="empty-state">Nog geen restaurants aangemaakt.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var restaurant in _restaurants.Take(5))
+                {
+                    <div class="list-row">
+                        <div>
+                            <strong>@restaurant.Name</strong>
+                            <div class="text-muted small">@restaurant.Email</div>
+                        </div>
+                        <div class="row-actions">
+                            <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/reservations")">Reserveringen</a>
+                            <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/opening-hours")">Openingstijden</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private IReadOnlyList<RestaurantDto> _restaurants = [];
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _restaurants = (await RestaurantApi.GetAllAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

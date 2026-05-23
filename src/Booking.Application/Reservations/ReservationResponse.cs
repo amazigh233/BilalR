@@ -11,6 +11,7 @@ public sealed record ReservationResponse(
     string? CustomerPhoneNumber,
     DateTime ReservationDateTime,
     int PartySize,
+    string? Note,
     ReservationStatus Status,
     DateTime CreatedAtUtc)
 {
@@ -25,6 +26,7 @@ public sealed record ReservationResponse(
             reservation.Customer.PhoneNumber,
             reservation.ReservationDateTime,
             reservation.PartySize,
+            reservation.Note,
             reservation.Status,
             reservation.CreatedAtUtc);
     }

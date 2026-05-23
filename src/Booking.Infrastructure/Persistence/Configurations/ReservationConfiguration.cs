@@ -25,6 +25,9 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
         builder.Property(reservation => reservation.PartySize)
             .IsRequired();
 
+        builder.Property(reservation => reservation.Note)
+            .HasMaxLength(1000);
+
         builder.Property(reservation => reservation.Status)
             .HasConversion<string>()
             .HasMaxLength(20)

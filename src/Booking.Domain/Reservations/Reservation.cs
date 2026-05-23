@@ -13,7 +13,8 @@ public sealed class Reservation
         Guid restaurantId,
         Customer customer,
         DateTime reservationDateTime,
-        int partySize)
+        int partySize,
+        string? note = null)
     {
         if (restaurantId == Guid.Empty)
         {
@@ -32,12 +33,18 @@ public sealed class Reservation
             throw new ArgumentOutOfRangeException(nameof(partySize), "Party size must be greater than 0.");
         }
 
+        if (note?.Length > 1000)
+        {
+            throw new ArgumentException("Reservation note cannot exceed 1000 characters.", nameof(note));
+        }
+
         Id = Guid.NewGuid();
         RestaurantId = restaurantId;
         CustomerId = customer.Id;
         Customer = customer;
         ReservationDateTime = reservationDateTime;
         PartySize = partySize;
+        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
         Status = ReservationStatus.New;
         CreatedAtUtc = DateTime.UtcNow;
     }
@@ -53,6 +60,8 @@ public sealed class Reservation
     public DateTime ReservationDateTime { get; private set; }
 
     public int PartySize { get; private set; }
+
+    public string? Note { get; private set; }
 
     public ReservationStatus Status { get; private set; }
 

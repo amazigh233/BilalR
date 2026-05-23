@@ -1,0 +1,181 @@
+@page "/admin/restaurants"
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject RestaurantApiClient RestaurantApi
+
+<PageTitle>Restaurants</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Restaurants</h1>
+        <p class="text-muted mb-0">Maak restaurants aan en open de MVP beheerpagina's.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<div class="responsive-grid">
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Nieuw restaurant</h2>
+        </div>
+
+        <EditForm Model="_form" FormName="create-restaurant" OnValidSubmit="CreateRestaurantAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-field">
+                <label for="restaurant-name">Naam</label>
+                <InputText id="restaurant-name" class="form-control" @bind-Value="_form.Name" />
+            </div>
+
+            <div class="form-field">
+                <label for="restaurant-phone">Telefoon</label>
+                <InputText id="restaurant-phone" class="form-control" @bind-Value="_form.PhoneNumber" />
+            </div>
+
+            <div class="form-field">
+                <label for="restaurant-email">E-mail</label>
+                <InputText id="restaurant-email" class="form-control" @bind-Value="_form.Email" />
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit" disabled="@_isCreating">
+                @(_isCreating ? "Aanmaken..." : "Restaurant aanmaken")
+            </button>
+        </EditForm>
+    </section>
+
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Restaurantlijst</h2>
+            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="LoadRestaurantsAsync" disabled="@_isLoading">
+                Vernieuwen
+            </button>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-state">Restaurants laden...</div>
+        }
+        else if (_restaurants.Count == 0)
+        {
+            <p class="empty-state">Nog geen restaurants aangemaakt.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Naam</th>
+                            <th>Contact</th>
+                            <th class="text-end">Acties</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var restaurant in _restaurants)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@restaurant.Name</strong>
+                                    <div class="text-muted small">@restaurant.Id</div>
+                                </td>
+                                <td>
+                                    <div>@(restaurant.PhoneNumber ?? "-")</div>
+                                    <div class="text-muted small">@(restaurant.Email ?? "-")</div>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/opening-hours")">Openingstijden</a>
+                                        <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/reservations")">Reserveringen</a>
+                                        <a class="btn btn-outline-primary btn-sm" href="@($"/booking/{restaurant.Id}")">Publieke pagina</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private List<RestaurantDto> _restaurants = [];
+    private CreateRestaurantForm _form = new();
+    private bool _isLoading = true;
+    private bool _isCreating;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRestaurantsAsync();
+    }
+
+    private async Task LoadRestaurantsAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _restaurants = (await RestaurantApi.GetAllAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CreateRestaurantAsync()
+    {
+        _isCreating = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            var created = await RestaurantApi.CreateAsync(new CreateRestaurantRequest(
+                _form.Name,
+                _form.PhoneNumber,
+                _form.Email));
+
+            _successMessage = $"{created.Name} is aangemaakt.";
+            _form = new CreateRestaurantForm();
+            await LoadRestaurantsAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private sealed class CreateRestaurantForm
+    {
+        [Required(ErrorMessage = "Naam is verplicht.")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? PhoneNumber { get; set; }
+
+        [EmailAddress(ErrorMessage = "Gebruik een geldig e-mailadres.")]
+        public string? Email { get; set; }
+    }
+}

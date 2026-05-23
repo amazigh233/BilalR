@@ -1,0 +1,220 @@
+@page "/admin/restaurants/{RestaurantId:guid}/opening-hours"
+@rendermode InteractiveServer
+@using System.Globalization
+@inject RestaurantApiClient RestaurantApi
+@inject OpeningHoursApiClient OpeningHoursApi
+
+<PageTitle>Openingstijden</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Openingstijden</p>
+        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
+        <p class="text-muted mb-0">Bekijk en wijzig openingstijden per dag.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/admin/restaurants">Terug naar restaurants</a>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_isLoading)
+{
+    <div class="loading-state">Openingstijden laden...</div>
+}
+else
+{
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Weekinstelling</h2>
+        </div>
+
+        <EditForm Model="_rows" FormName="opening-hours" OnSubmit="SaveAsync">
+            <div class="opening-hours-list">
+                @foreach (var row in _rows)
+                {
+                    <div class="opening-hour-row">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="@($"open-{row.Day}")" @bind="row.IsOpen" />
+                            <label class="form-check-label" for="@($"open-{row.Day}")">@GetDayName(row.Day)</label>
+                        </div>
+                        <div class="time-fields">
+                            <input class="form-control"
+                                   type="time"
+                                   aria-label="Opent om"
+                                   value="@row.OpensAt"
+                                   @onchange="eventArgs => row.OpensAt = eventArgs.Value?.ToString() ?? string.Empty"
+                                   disabled="@(!row.IsOpen)" />
+                            <span class="time-separator">tot</span>
+                            <input class="form-control"
+                                   type="time"
+                                   aria-label="Sluit om"
+                                   value="@row.ClosesAt"
+                                   @onchange="eventArgs => row.ClosesAt = eventArgs.Value?.ToString() ?? string.Empty"
+                                   disabled="@(!row.IsOpen)" />
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <button class="btn btn-primary mt-3" type="submit" disabled="@_isSaving">
+                @(_isSaving ? "Opslaan..." : "Openingstijden opslaan")
+            </button>
+        </EditForm>
+    </section>
+}
+
+@code {
+    [Parameter]
+    public Guid RestaurantId { get; set; }
+
+    private static readonly DayOfWeek[] Days =
+    [
+        DayOfWeek.Monday,
+        DayOfWeek.Tuesday,
+        DayOfWeek.Wednesday,
+        DayOfWeek.Thursday,
+        DayOfWeek.Friday,
+        DayOfWeek.Saturday,
+        DayOfWeek.Sunday
+    ];
+
+    private RestaurantDto? _restaurant;
+    private List<OpeningHourRow> _rows = [];
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rows = Days.Select(day => new OpeningHourRow(day)).ToList();
+
+        try
+        {
+            _restaurant = await RestaurantApi.GetByIdAsync(RestaurantId);
+            var openingHours = await OpeningHoursApi.GetAsync(RestaurantId);
+            ApplyOpeningHours(openingHours.OpeningHours);
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            var openingHours = new List<OpeningHourRequest>();
+
+            foreach (var row in _rows.Where(row => row.IsOpen))
+            {
+                if (!TryReadTime(row.OpensAt, out var opensAt) ||
+                    !TryReadTime(row.ClosesAt, out var closesAt))
+                {
+                    _errorMessage = "Controleer de tijdvelden.";
+                    return;
+                }
+
+                openingHours.Add(new OpeningHourRequest(row.Day, opensAt, closesAt));
+            }
+
+            if (openingHours.Count == 0)
+            {
+                _errorMessage = "Kies minimaal een geopende dag.";
+                return;
+            }
+
+            var response = await OpeningHoursApi.SetAsync(
+                RestaurantId,
+                new SetOpeningHoursRequest(openingHours));
+
+            ApplyOpeningHours(response.OpeningHours);
+            _successMessage = "Openingstijden opgeslagen.";
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ApplyOpeningHours(IReadOnlyCollection<OpeningHourDto> openingHours)
+    {
+        foreach (var row in _rows)
+        {
+            row.IsOpen = false;
+        }
+
+        foreach (var openingHour in openingHours)
+        {
+            var row = _rows.FirstOrDefault(row => row.Day == openingHour.DayOfWeek);
+            if (row is null)
+            {
+                continue;
+            }
+
+            row.IsOpen = true;
+            row.OpensAt = openingHour.OpensAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+            row.ClosesAt = openingHour.ClosesAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+        }
+    }
+
+    private static bool TryReadTime(string value, out TimeOnly time)
+    {
+        var formats = new[] { "HH:mm", "H:mm", "HH:mm:ss", "H:mm:ss" };
+
+        return TimeOnly.TryParseExact(
+                value,
+                formats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out time) ||
+            TimeOnly.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.None, out time);
+    }
+
+    private static string GetDayName(DayOfWeek day)
+    {
+        return day switch
+        {
+            DayOfWeek.Monday => "Maandag",
+            DayOfWeek.Tuesday => "Dinsdag",
+            DayOfWeek.Wednesday => "Woensdag",
+            DayOfWeek.Thursday => "Donderdag",
+            DayOfWeek.Friday => "Vrijdag",
+            DayOfWeek.Saturday => "Zaterdag",
+            DayOfWeek.Sunday => "Zondag",
+            _ => day.ToString()
+        };
+    }
+
+    private sealed class OpeningHourRow(DayOfWeek day)
+    {
+        public DayOfWeek Day { get; } = day;
+
+        public bool IsOpen { get; set; }
+
+        public string OpensAt { get; set; } = "17:00";
+
+        public string ClosesAt { get; set; } = "22:00";
+    }
+}

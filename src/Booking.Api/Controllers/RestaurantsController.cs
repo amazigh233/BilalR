@@ -7,6 +7,7 @@ namespace Booking.Api.Controllers;
 [Route("api/restaurants")]
 public sealed class RestaurantsController(
     CreateRestaurantUseCase createRestaurantUseCase,
+    GetRestaurantsUseCase getRestaurantsUseCase,
     GetRestaurantUseCase getRestaurantUseCase) : ApiControllerBase
 {
     [HttpPost]
@@ -46,6 +47,16 @@ public sealed class RestaurantsController(
         {
             return HandleKnownException(exception);
         }
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(IReadOnlyCollection<RestaurantApiResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyCollection<RestaurantApiResponse>>> GetAll(
+        CancellationToken cancellationToken)
+    {
+        var response = await getRestaurantsUseCase.ExecuteAsync(cancellationToken);
+
+        return Ok(response.Select(ToApiResponse).ToList());
     }
 
     [HttpGet("{restaurantId}")]

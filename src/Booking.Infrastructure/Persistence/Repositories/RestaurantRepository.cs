@@ -12,6 +12,14 @@ public sealed class RestaurantRepository(BookingDbContext dbContext) : IRestaura
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<Restaurant>> GetAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Restaurants
+            .AsNoTracking()
+            .OrderBy(restaurant => restaurant.Name)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<Restaurant?> GetByIdAsync(Guid restaurantId, CancellationToken cancellationToken = default)
     {
         return await dbContext.Restaurants

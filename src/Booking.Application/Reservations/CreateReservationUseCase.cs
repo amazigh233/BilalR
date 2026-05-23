@@ -39,7 +39,8 @@ public sealed class CreateReservationUseCase(
             restaurant.Id,
             customer,
             request.ReservationDateTime,
-            request.PartySize);
+            request.PartySize,
+            request.Note);
 
         await reservationRepository.AddAsync(reservation, cancellationToken);
 
