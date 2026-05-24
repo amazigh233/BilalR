@@ -8,9 +8,9 @@ public sealed class OpeningHour
 
     public OpeningHour(DayOfWeek dayOfWeek, TimeOnly opensAt, TimeOnly closesAt)
     {
-        if (closesAt <= opensAt)
+        if (closesAt == opensAt)
         {
-            throw new ArgumentException("Closing time must be later than opening time.", nameof(closesAt));
+            throw new ArgumentException("Closing time cannot be equal to opening time.", nameof(closesAt));
         }
 
         Id = Guid.NewGuid();

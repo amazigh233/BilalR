@@ -8,8 +8,8 @@ public sealed class OpeningHoursApiClient(HttpClient httpClient) : BookingApiCli
         Guid restaurantId,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.GetAsync(
-            $"api/restaurants/{restaurantId}/opening-hours",
+        using var response = await SendAsync(
+            token => HttpClient.GetAsync($"api/restaurants/{restaurantId}/opening-hours", token),
             cancellationToken);
 
         return await ReadResponseAsync<OpeningHoursDto>(response, cancellationToken);
@@ -20,10 +20,12 @@ public sealed class OpeningHoursApiClient(HttpClient httpClient) : BookingApiCli
         SetOpeningHoursRequest request,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.PostAsJsonAsync(
-            $"api/restaurants/{restaurantId}/opening-hours",
-            request,
-            JsonOptions,
+        using var response = await SendAsync(
+            token => HttpClient.PostAsJsonAsync(
+                $"api/restaurants/{restaurantId}/opening-hours",
+                request,
+                JsonOptions,
+                token),
             cancellationToken);
 
         return await ReadResponseAsync<OpeningHoursDto>(response, cancellationToken);

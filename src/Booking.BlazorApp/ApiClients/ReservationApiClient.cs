@@ -8,8 +8,8 @@ public sealed class ReservationApiClient(HttpClient httpClient) : BookingApiClie
         Guid restaurantId,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.GetAsync(
-            $"api/restaurants/{restaurantId}/reservations",
+        using var response = await SendAsync(
+            token => HttpClient.GetAsync($"api/restaurants/{restaurantId}/reservations", token),
             cancellationToken);
 
         return await ReadResponseAsync<IReadOnlyCollection<ReservationDto>>(response, cancellationToken);
@@ -19,10 +19,8 @@ public sealed class ReservationApiClient(HttpClient httpClient) : BookingApiClie
         CreateReservationRequest request,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.PostAsJsonAsync(
-            "api/reservations",
-            request,
-            JsonOptions,
+        using var response = await SendAsync(
+            token => HttpClient.PostAsJsonAsync("api/reservations", request, JsonOptions, token),
             cancellationToken);
 
         return await ReadResponseAsync<ReservationDto>(response, cancellationToken);
@@ -35,11 +33,13 @@ public sealed class ReservationApiClient(HttpClient httpClient) : BookingApiClie
     {
         var request = new ChangeReservationStatusRequest(status);
 
-        using var response = await HttpClient.SendAsync(
-            new HttpRequestMessage(HttpMethod.Patch, $"api/reservations/{reservationId}/status")
-            {
-                Content = CreateJsonContent(request)
-            },
+        using var response = await SendAsync(
+            token => HttpClient.SendAsync(
+                new HttpRequestMessage(HttpMethod.Patch, $"api/reservations/{reservationId}/status")
+                {
+                    Content = CreateJsonContent(request)
+                },
+                token),
             cancellationToken);
 
         return await ReadResponseAsync<ReservationDto>(response, cancellationToken);

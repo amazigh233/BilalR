@@ -35,12 +35,30 @@ public sealed class AvailabilityService(IRestaurantRepository restaurantReposito
         var reservationTime = TimeOnly.FromDateTime(reservationDateTime);
 
         var isOpen = openingHours.Any(openingHour =>
-            openingHour.DayOfWeek == reservationDateTime.DayOfWeek &&
-            openingHour.OpensAt <= reservationTime &&
-            openingHour.ClosesAt > reservationTime);
+            IsWithinOpeningHour(openingHour.DayOfWeek, openingHour.OpensAt, openingHour.ClosesAt));
 
         return isOpen
             ? new AvailabilityResult(true)
-            : new AvailabilityResult(false, "Restaurant is closed at the requested time.");
+            : new AvailabilityResult(false, "Het restaurant is gesloten op het gekozen tijdstip.");
+
+        bool IsWithinOpeningHour(DayOfWeek dayOfWeek, TimeOnly opensAt, TimeOnly closesAt)
+        {
+            if (opensAt < closesAt)
+            {
+                return dayOfWeek == reservationDateTime.DayOfWeek &&
+                    opensAt <= reservationTime &&
+                    closesAt > reservationTime;
+            }
+
+            return (dayOfWeek == reservationDateTime.DayOfWeek && opensAt <= reservationTime) ||
+                (GetNextDay(dayOfWeek) == reservationDateTime.DayOfWeek && closesAt > reservationTime);
+        }
+    }
+
+    private static DayOfWeek GetNextDay(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek == DayOfWeek.Saturday
+            ? DayOfWeek.Sunday
+            : dayOfWeek + 1;
     }
 }

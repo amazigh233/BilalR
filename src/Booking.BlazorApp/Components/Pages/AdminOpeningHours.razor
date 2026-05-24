@@ -29,7 +29,7 @@
 {
     <div class="loading-state">Openingstijden laden...</div>
 }
-else
+else if (!_loadFailed)
 {
     <section class="content-section">
         <div class="section-heading">
@@ -90,6 +90,7 @@ else
     private List<OpeningHourRow> _rows = [];
     private bool _isLoading = true;
     private bool _isSaving;
+    private bool _loadFailed;
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -106,6 +107,7 @@ else
         catch (ApiClientException exception)
         {
             _errorMessage = exception.Message;
+            _loadFailed = true;
         }
         finally
         {
@@ -129,6 +131,12 @@ else
                     !TryReadTime(row.ClosesAt, out var closesAt))
                 {
                     _errorMessage = "Controleer de tijdvelden.";
+                    return;
+                }
+
+                if (closesAt == opensAt)
+                {
+                    _errorMessage = "Sluitingtijd mag niet gelijk zijn aan openingstijd.";
                     return;
                 }
 

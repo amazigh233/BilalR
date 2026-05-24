@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Booking.Api.Contracts.Common;
 using Booking.Application.Availability;
 using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
@@ -31,6 +32,16 @@ builder.Services.AddScoped<ChangeReservationStatusUseCase>();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
+
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        await context.Response.WriteAsJsonAsync(new ApiErrorResponse(
+            "Er is een onverwachte fout opgetreden. Probeer het later opnieuw."));
+    });
+});
 
 if (app.Environment.IsDevelopment())
 {

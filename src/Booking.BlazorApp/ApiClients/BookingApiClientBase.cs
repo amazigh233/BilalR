@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -12,6 +13,28 @@ public abstract class BookingApiClientBase(HttpClient httpClient)
     };
 
     protected HttpClient HttpClient { get; } = httpClient;
+
+    protected async Task<HttpResponseMessage> SendAsync(
+        Func<CancellationToken, Task<HttpResponseMessage>> sendAsync,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await sendAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            throw new ApiClientException(
+                "De API is tijdelijk niet bereikbaar. Controleer of de API draait en probeer opnieuw.",
+                HttpStatusCode.ServiceUnavailable);
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ApiClientException(
+                "De API reageerde niet op tijd. Probeer opnieuw.",
+                HttpStatusCode.RequestTimeout);
+        }
+    }
 
     protected async Task<TResponse> ReadResponseAsync<TResponse>(
         HttpResponseMessage response,

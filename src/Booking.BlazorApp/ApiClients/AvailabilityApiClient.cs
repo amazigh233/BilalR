@@ -13,8 +13,10 @@ public sealed class AvailabilityApiClient(HttpClient httpClient) : BookingApiCli
         var dateTime = Uri.EscapeDataString(
             reservationDateTime.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture));
 
-        using var response = await HttpClient.GetAsync(
-            $"api/restaurants/{restaurantId}/availability?dateTime={dateTime}&partySize={partySize}",
+        using var response = await SendAsync(
+            token => HttpClient.GetAsync(
+                $"api/restaurants/{restaurantId}/availability?dateTime={dateTime}&partySize={partySize}",
+                token),
             cancellationToken);
 
         return await ReadResponseAsync<AvailabilityDto>(response, cancellationToken);

@@ -24,37 +24,37 @@
     <div class="alert alert-danger">@_errorMessage</div>
 }
 
-<section class="content-section">
-    <div class="filters">
-        <div class="form-field">
-            <label for="reservation-date-filter">Datum</label>
-            <input id="reservation-date-filter"
-                   class="form-control"
-                   type="date"
-                   value="@_dateFilter"
-                   @onchange="eventArgs => _dateFilter = eventArgs.Value?.ToString() ?? string.Empty" />
-        </div>
-        <div class="form-field">
-            <label for="reservation-status-filter">Status</label>
-            <select id="reservation-status-filter" class="form-select" @bind="_statusFilter">
-                <option value="">Alle statussen</option>
-                @foreach (var status in Enum.GetValues<ReservationStatus>())
-                {
-                    <option value="@status">@status</option>
-                }
-            </select>
-        </div>
-        <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="ClearFilters">Filters wissen</button>
-        <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
-    </div>
-</section>
-
 @if (_isLoading)
 {
     <div class="loading-state">Reserveringen laden...</div>
 }
-else
+else if (!_loadFailed)
 {
+    <section class="content-section">
+        <div class="filters">
+            <div class="form-field">
+                <label for="reservation-date-filter">Datum</label>
+                <input id="reservation-date-filter"
+                       class="form-control"
+                       type="date"
+                       value="@_dateFilter"
+                       @onchange="eventArgs => _dateFilter = eventArgs.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="form-field">
+                <label for="reservation-status-filter">Status</label>
+                <select id="reservation-status-filter" class="form-select" @bind="_statusFilter">
+                    <option value="">Alle statussen</option>
+                    @foreach (var status in Enum.GetValues<ReservationStatus>())
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </div>
+            <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="ClearFilters">Filters wissen</button>
+            <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
+        </div>
+    </section>
+
     <section class="content-section">
         <div class="section-heading">
             <h2>Overzicht</h2>
@@ -129,6 +129,7 @@ else
     private List<ReservationDto> _reservations = [];
     private readonly HashSet<Guid> _updatingReservationIds = [];
     private bool _isLoading = true;
+    private bool _loadFailed;
     private string _dateFilter = string.Empty;
     private string _statusFilter = string.Empty;
     private string? _errorMessage;
@@ -163,6 +164,7 @@ else
     private async Task LoadAsync()
     {
         _isLoading = true;
+        _loadFailed = false;
         _errorMessage = null;
 
         try
@@ -173,6 +175,7 @@ else
         catch (ApiClientException exception)
         {
             _errorMessage = exception.Message;
+            _loadFailed = true;
         }
         finally
         {

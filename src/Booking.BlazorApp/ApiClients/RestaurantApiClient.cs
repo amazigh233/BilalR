@@ -7,7 +7,9 @@ public sealed class RestaurantApiClient(HttpClient httpClient) : BookingApiClien
     public async Task<IReadOnlyCollection<RestaurantDto>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.GetAsync("api/restaurants", cancellationToken);
+        using var response = await SendAsync(
+            token => HttpClient.GetAsync("api/restaurants", token),
+            cancellationToken);
 
         return await ReadResponseAsync<IReadOnlyCollection<RestaurantDto>>(response, cancellationToken);
     }
@@ -16,8 +18,8 @@ public sealed class RestaurantApiClient(HttpClient httpClient) : BookingApiClien
         Guid restaurantId,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.GetAsync(
-            $"api/restaurants/{restaurantId}",
+        using var response = await SendAsync(
+            token => HttpClient.GetAsync($"api/restaurants/{restaurantId}", token),
             cancellationToken);
 
         return await ReadResponseAsync<RestaurantDto>(response, cancellationToken);
@@ -27,10 +29,8 @@ public sealed class RestaurantApiClient(HttpClient httpClient) : BookingApiClien
         CreateRestaurantRequest request,
         CancellationToken cancellationToken = default)
     {
-        using var response = await HttpClient.PostAsJsonAsync(
-            "api/restaurants",
-            request,
-            JsonOptions,
+        using var response = await SendAsync(
+            token => HttpClient.PostAsJsonAsync("api/restaurants", request, JsonOptions, token),
             cancellationToken);
 
         return await ReadResponseAsync<RestaurantDto>(response, cancellationToken);
