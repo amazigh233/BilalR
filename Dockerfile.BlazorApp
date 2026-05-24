@@ -1,0 +1,23 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+COPY global.json ./
+COPY Booking.sln ./
+COPY src/Booking.BlazorApp/Booking.BlazorApp.csproj src/Booking.BlazorApp/
+
+RUN dotnet restore src/Booking.BlazorApp/Booking.BlazorApp.csproj
+
+COPY . .
+RUN dotnet publish src/Booking.BlazorApp/Booking.BlazorApp.csproj \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "Booking.BlazorApp.dll"]

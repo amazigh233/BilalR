@@ -1,0 +1,12 @@
+.git
+.vs
+.vscode
+.logs
+bin
+obj
+**/bin
+**/obj
+.env
+*.user
+*.suo
+TestResults

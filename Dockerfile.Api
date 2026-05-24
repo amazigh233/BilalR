@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+
+COPY global.json ./
+COPY Booking.sln ./
+COPY src/Booking.Domain/Booking.Domain.csproj src/Booking.Domain/
+COPY src/Booking.Application/Booking.Application.csproj src/Booking.Application/
+COPY src/Booking.Infrastructure/Booking.Infrastructure.csproj src/Booking.Infrastructure/
+COPY src/Booking.Api/Booking.Api.csproj src/Booking.Api/
+
+RUN dotnet restore src/Booking.Api/Booking.Api.csproj
+
+COPY . .
+RUN dotnet publish src/Booking.Api/Booking.Api.csproj \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+
+COPY --from=build /app/publish .
+
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "Booking.Api.dll"]
