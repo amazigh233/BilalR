@@ -7,8 +7,11 @@ namespace Booking.Application.Reservations;
 public sealed class CreateReservationUseCase(
     IRestaurantRepository restaurantRepository,
     IReservationRepository reservationRepository,
-    IAvailabilityService availabilityService)
+    IAvailabilityService availabilityService,
+    TimeProvider? timeProvider = null)
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     public async Task<ReservationResponse> ExecuteAsync(
         CreateReservationRequest request,
         CancellationToken cancellationToken = default)
@@ -17,6 +20,11 @@ public sealed class CreateReservationUseCase(
         if (restaurant is null)
         {
             throw new KeyNotFoundException("Restaurant was not found.");
+        }
+
+        if (request.ReservationDateTime <= _timeProvider.GetLocalNow().DateTime)
+        {
+            throw new InvalidOperationException("Reservering moet in de toekomst liggen.");
         }
 
         var availability = await availabilityService.CheckAsync(

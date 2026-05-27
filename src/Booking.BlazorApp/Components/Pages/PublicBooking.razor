@@ -137,6 +137,12 @@ else
             }
 
             var reservationDateTime = _form.Date.Date + time.ToTimeSpan();
+            if (reservationDateTime <= DateTime.Now)
+            {
+                _errorMessage = "Kies een datum en tijd in de toekomst.";
+                return;
+            }
+
             var availability = await AvailabilityApi.CheckAsync(
                 RestaurantId,
                 reservationDateTime,

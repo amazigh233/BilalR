@@ -68,12 +68,15 @@ Dit testplan stabiliseert MVP 1 zonder nieuwe features toe te voegen. De focus l
 7. Kies een tijd buiten openingstijden.
 8. Verwacht: foutmelding `Het restaurant is gesloten op het gekozen tijdstip.`
 9. Controleer in het reserveringsoverzicht dat er geen reservering is aangemaakt voor dit geweigerde tijdstip.
-10. Bij openingstijden `17:00` tot `01:00`: kies `23:30` op de geopende dag.
-11. Verwacht: reservering wordt geaccepteerd.
-12. Bij dezelfde openingstijden: kies `00:30` op de volgende kalenderdag.
-13. Verwacht: reservering wordt geaccepteerd als vervolg van de vorige openingsdag.
-14. Bij dezelfde openingstijden: kies `01:00` op de volgende kalenderdag.
-15. Verwacht: reservering wordt geweigerd omdat sluitingstijd exclusief is.
+10. [ ] Reservering in het verleden wordt geweigerd
+11. [ ] Reservering op huidige datum/tijd of eerder wordt geweigerd
+12. [ ] Reservering in de toekomst wordt toegestaan
+13. Bij openingstijden `17:00` tot `01:00`: kies `23:30` op de geopende dag.
+14. Verwacht: reservering wordt geaccepteerd.
+15. Bij dezelfde openingstijden: kies `00:30` op de volgende kalenderdag.
+16. Verwacht: reservering wordt geaccepteerd als vervolg van de vorige openingsdag.
+17. Bij dezelfde openingstijden: kies `01:00` op de volgende kalenderdag.
+18. Verwacht: reservering wordt geweigerd omdat sluitingstijd exclusief is.
 
 ### Reserveringsoverzicht
 
