@@ -1,0 +1,13 @@
+@page "/access-denied"
+@attribute [Authorize]
+
+<PageTitle>Geen toegang</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Account</p>
+        <h1>Geen toegang</h1>
+        <p class="text-muted mb-0">Dit account heeft geen toegang tot deze pagina.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
+</section>

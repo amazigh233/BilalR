@@ -1,11 +1,16 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Booking.BlazorApp.Authentication;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Booking.BlazorApp.ApiClients;
 
-public abstract class BookingApiClientBase(HttpClient httpClient)
+public abstract class BookingApiClientBase(
+    HttpClient httpClient,
+    AuthenticationStateProvider? authenticationStateProvider = null)
 {
     protected static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -20,6 +25,8 @@ public abstract class BookingApiClientBase(HttpClient httpClient)
     {
         try
         {
+            await ApplyBearerTokenAsync();
+
             return await sendAsync(cancellationToken);
         }
         catch (HttpRequestException)
@@ -58,6 +65,23 @@ public abstract class BookingApiClientBase(HttpClient httpClient)
     protected static JsonContent CreateJsonContent<TRequest>(TRequest request)
     {
         return JsonContent.Create(request, options: JsonOptions);
+    }
+
+    private async Task ApplyBearerTokenAsync()
+    {
+        if (authenticationStateProvider is null)
+        {
+            return;
+        }
+
+        var authenticationState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var accessToken = authenticationState.User
+            .FindFirst(BookingAuthClaimTypes.AccessToken)
+            ?.Value;
+
+        HttpClient.DefaultRequestHeaders.Authorization = string.IsNullOrWhiteSpace(accessToken)
+            ? null
+            : new AuthenticationHeaderValue("Bearer", accessToken);
     }
 
     private static async Task<string> ReadErrorMessageAsync(

@@ -8,7 +8,7 @@ public sealed class BookingDbContextFactory : IDesignTimeDbContextFactory<Bookin
     public BookingDbContext CreateDbContext(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__BookingDatabase")
-            ?? "Server=localhost,1433;Database=BookingDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;";
+            ?? "Server=localhost,1434;Database=BookingDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;";
 
         var optionsBuilder = new DbContextOptionsBuilder<BookingDbContext>();
         optionsBuilder.UseSqlServer(connectionString);

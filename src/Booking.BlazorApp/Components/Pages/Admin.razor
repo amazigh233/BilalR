@@ -1,16 +1,18 @@
 @page "/admin"
+@attribute [Authorize(Roles = "Owner,Staff")]
 @rendermode InteractiveServer
 @inject RestaurantApiClient RestaurantApi
+@inject ReservationApiClient ReservationApi
 
 <PageTitle>Admin dashboard</PageTitle>
 
 <section class="page-header">
     <div>
         <p class="eyebrow">Beheer</p>
-        <h1>Dashboard</h1>
-        <p class="text-muted mb-0">Snel naar restaurants en reserveringen.</p>
+        <h1>@(_restaurant?.Name ?? "Dashboard")</h1>
+        <p class="text-muted mb-0">Reserveringen en instellingen voor je eigen restaurant.</p>
     </div>
-    <a class="btn btn-primary" href="/admin/restaurants">Restaurants beheren</a>
+    <a class="btn btn-primary" href="/admin/reservations">Reserveringen</a>
 </section>
 
 @if (_isLoading)
@@ -21,42 +23,47 @@ else if (!string.IsNullOrWhiteSpace(_errorMessage))
 {
     <div class="alert alert-danger">@_errorMessage</div>
 }
-else
+else if (_restaurant is not null)
 {
     <div class="stats-grid">
         <div class="stat-card">
-            <span class="stat-label">Restaurants</span>
-            <strong>@_restaurants.Count</strong>
+            <span class="stat-label">Restaurant</span>
+            <strong>@_restaurant.Name</strong>
         </div>
-        <a class="stat-card stat-link" href="/admin/restaurants">
-            <span class="stat-label">Actie</span>
-            <strong>Restaurant aanmaken</strong>
+        <a class="stat-card stat-link" href="/admin/reservations">
+            <span class="stat-label">Reserveringen</span>
+            <strong>@_reservations.Count</strong>
         </a>
+        <AuthorizeView Roles="Owner">
+            <a class="stat-card stat-link" href="/admin/opening-hours">
+                <span class="stat-label">Actie</span>
+                <strong>Openingstijden</strong>
+            </a>
+        </AuthorizeView>
     </div>
 
     <section class="content-section">
         <div class="section-heading">
-            <h2>Recente restaurants</h2>
+            <h2>Laatste reserveringen</h2>
         </div>
 
-        @if (_restaurants.Count == 0)
+        @if (_reservations.Count == 0)
         {
-            <p class="empty-state">Nog geen restaurants aangemaakt.</p>
+            <p class="empty-state">Nog geen reserveringen gevonden.</p>
         }
         else
         {
             <div class="list-stack">
-                @foreach (var restaurant in _restaurants.Take(5))
+                @foreach (var reservation in _reservations
+                    .OrderByDescending(reservation => reservation.ReservationDateTime)
+                    .Take(5))
                 {
                     <div class="list-row">
                         <div>
-                            <strong>@restaurant.Name</strong>
-                            <div class="text-muted small">@restaurant.Email</div>
+                            <strong>@reservation.CustomerName</strong>
+                            <div class="text-muted small">@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</div>
                         </div>
-                        <div class="row-actions">
-                            <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/reservations")">Reserveringen</a>
-                            <a class="btn btn-outline-secondary btn-sm" href="@($"/admin/restaurants/{restaurant.Id}/opening-hours")">Openingstijden</a>
-                        </div>
+                        <span class="status-pill">@reservation.Status</span>
                     </div>
                 }
             </div>
@@ -65,7 +72,8 @@ else
 }
 
 @code {
-    private IReadOnlyList<RestaurantDto> _restaurants = [];
+    private RestaurantDto? _restaurant;
+    private List<ReservationDto> _reservations = [];
     private bool _isLoading = true;
     private string? _errorMessage;
 
@@ -73,7 +81,8 @@ else
     {
         try
         {
-            _restaurants = (await RestaurantApi.GetAllAsync()).ToList();
+            _restaurant = await RestaurantApi.GetCurrentAsync();
+            _reservations = (await ReservationApi.GetCurrentRestaurantAsync()).ToList();
         }
         catch (ApiClientException exception)
         {

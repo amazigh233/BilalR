@@ -2,11 +2,15 @@ using Booking.Domain.Customers;
 using Booking.Domain.Notifications;
 using Booking.Domain.Reservations;
 using Booking.Domain.Restaurants;
+using Booking.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace Booking.Infrastructure.Persistence;
 
-public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options) : DbContext(options)
+public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
+    : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<Restaurant> Restaurants => Set<Restaurant>();
 
@@ -20,6 +24,7 @@ public sealed class BookingDbContext(DbContextOptions<BookingDbContext> options)
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BookingDbContext).Assembly);
     }
 }

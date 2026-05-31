@@ -1,8 +1,12 @@
 using System.Globalization;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Booking.BlazorApp.ApiClients;
 
-public sealed class AvailabilityApiClient(HttpClient httpClient) : BookingApiClientBase(httpClient)
+public sealed class AvailabilityApiClient(
+    HttpClient httpClient,
+    AuthenticationStateProvider authenticationStateProvider)
+    : BookingApiClientBase(httpClient, authenticationStateProvider)
 {
     public async Task<AvailabilityDto> CheckAsync(
         Guid restaurantId,

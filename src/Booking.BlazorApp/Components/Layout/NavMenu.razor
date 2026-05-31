@@ -13,15 +13,57 @@
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="admin/restaurants">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Restaurants
-            </NavLink>
-        </div>
+
+        <AuthorizeView>
+            <Authorized Context="authState">
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin">
+                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/reservations">
+                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reserveringen
+                    </NavLink>
+                </div>
+
+                <AuthorizeView Roles="Owner">
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="admin/restaurant">
+                            <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Restaurant
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="admin/opening-hours">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Openingstijden
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+
+                @if (TryGetRestaurantId(authState.User, out var restaurantId))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="@($"booking/{restaurantId}")">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Publieke pagina
+                        </NavLink>
+                    </div>
+                }
+            </Authorized>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="login">
+                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Inloggen
+                    </NavLink>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
     </nav>
 </div>
+
+@code {
+    private static bool TryGetRestaurantId(ClaimsPrincipal user, out Guid restaurantId)
+    {
+        var value = user.FindFirst(BookingAuthClaimTypes.RestaurantId)?.Value;
+        return Guid.TryParse(value, out restaurantId);
+    }
+}

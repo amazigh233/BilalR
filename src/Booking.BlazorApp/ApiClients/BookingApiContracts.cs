@@ -2,6 +2,23 @@ namespace Booking.BlazorApp.ApiClients;
 
 public sealed record ApiErrorResponse(string Message);
 
+public sealed record LoginRequest(
+    string Email,
+    string Password);
+
+public sealed record LoginResponse(
+    string AccessToken,
+    DateTime ExpiresAtUtc,
+    AuthenticatedUserDto User);
+
+public sealed record AuthenticatedUserDto(
+    Guid Id,
+    string Email,
+    string DisplayName,
+    Guid RestaurantId,
+    string RestaurantName,
+    IReadOnlyCollection<string> Roles);
+
 public sealed record RestaurantDto(
     Guid Id,
     string Name,
@@ -9,6 +26,11 @@ public sealed record RestaurantDto(
     string? Email);
 
 public sealed record CreateRestaurantRequest(
+    string Name,
+    string? PhoneNumber,
+    string? Email);
+
+public sealed record UpdateRestaurantRequest(
     string Name,
     string? PhoneNumber,
     string? Email);

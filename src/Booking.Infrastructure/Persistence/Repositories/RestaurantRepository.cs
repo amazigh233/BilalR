@@ -27,6 +27,12 @@ public sealed class RestaurantRepository(BookingDbContext dbContext) : IRestaura
             .FirstOrDefaultAsync(restaurant => restaurant.Id == restaurantId, cancellationToken);
     }
 
+    public async Task UpdateAsync(Restaurant restaurant, CancellationToken cancellationToken = default)
+    {
+        dbContext.Restaurants.Update(restaurant);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyCollection<OpeningHour>> GetOpeningHoursAsync(
         Guid restaurantId,
         CancellationToken cancellationToken = default)

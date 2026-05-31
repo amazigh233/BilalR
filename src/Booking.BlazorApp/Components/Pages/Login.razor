@@ -1,0 +1,75 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>Inloggen</PageTitle>
+
+<section class="login-shell">
+    <div class="login-panel">
+        <p class="eyebrow">Zambiq Booking</p>
+        <h1>Inloggen</h1>
+
+        @if (!string.IsNullOrWhiteSpace(Error))
+        {
+            <div class="alert alert-danger">@Error</div>
+        }
+
+        @if (LoggedOut)
+        {
+            <div class="alert alert-success">Je bent uitgelogd.</div>
+        }
+
+        <form method="post" action="/auth/login">
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@SafeReturnUrl" />
+
+            <div class="form-field">
+                <label for="email">E-mail</label>
+                <input id="email"
+                       class="form-control"
+                       name="Email"
+                       type="email"
+                       autocomplete="username"
+                       required />
+            </div>
+
+            <div class="form-field">
+                <label for="password">Wachtwoord</label>
+                <input id="password"
+                       class="form-control"
+                       name="Password"
+                       type="password"
+                       autocomplete="current-password"
+                       required />
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">Inloggen</button>
+        </form>
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "loggedOut")]
+    public bool LoggedOut { get; set; }
+
+    private string SafeReturnUrl
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ReturnUrl) ||
+                !Uri.IsWellFormedUriString(ReturnUrl, UriKind.Relative) ||
+                !ReturnUrl.StartsWith('/') ||
+                ReturnUrl.StartsWith("//", StringComparison.Ordinal))
+            {
+                return "/admin";
+            }
+
+            return ReturnUrl;
+        }
+    }
+}

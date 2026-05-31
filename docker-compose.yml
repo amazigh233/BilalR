@@ -10,7 +10,7 @@ services:
       MSSQL_PID: "Developer"
       MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
     ports:
-      - "${SQL_PORT:-1433}:1433"
+      - "${SQL_PORT:-1434}:1433"
     volumes:
       - booking-sql-data:/var/opt/mssql
     healthcheck:
@@ -36,7 +36,14 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Staging}"
       ASPNETCORE_URLS: "http://+:8080"
-      ConnectionStrings__BookingDatabase: "Server=booking-sql,1433;Database=${DB_NAME};User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;"
+      ConnectionStrings__BookingDatabase: "Server=booking-sql,1433;Database=${DB_NAME:-BookingDb};User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;"
+      Authentication__Jwt__Issuer: "Booking.Api"
+      Authentication__Jwt__Audience: "Booking.BlazorApp"
+      Authentication__Jwt__SigningKey: "${JWT_SIGNING_KEY:-}"
+      Authentication__DevSeed__Enabled: "${AUTH_DEV_SEED_ENABLED:-false}"
+      Authentication__DevSeed__OwnerPassword: "${DEV_OWNER_PASSWORD:-}"
+      Authentication__DevSeed__StaffPassword: "${DEV_STAFF_PASSWORD:-}"
+      Authentication__DevSeed__SecondOwnerPassword: "${DEV_SECOND_OWNER_PASSWORD:-}"
     ports:
       - "${API_PORT:-5000}:8080"
 
@@ -51,7 +58,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Staging}"
       ASPNETCORE_URLS: "http://+:8080"
-      BookingApi__BaseUrl: "${API_URL}"
+      BookingApi__BaseUrl: "${API_URL:-http://booking-api:8080}"
     ports:
       - "${BLAZOR_PORT:-5001}:8080"
 

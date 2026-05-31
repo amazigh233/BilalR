@@ -1,4 +1,5 @@
-@page "/admin/restaurants/{RestaurantId:guid}/reservations"
+@page "/admin/reservations"
+@attribute [Authorize(Roles = "Owner,Staff")]
 @rendermode InteractiveServer
 @inject RestaurantApiClient RestaurantApi
 @inject ReservationApiClient ReservationApi
@@ -11,7 +12,7 @@
         <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
         <p class="text-muted mb-0">Bekijk reserveringen en wijzig de status.</p>
     </div>
-    <a class="btn btn-outline-secondary" href="/admin/restaurants">Terug naar restaurants</a>
+    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
 </section>
 
 @if (!string.IsNullOrWhiteSpace(_successMessage))
@@ -115,9 +116,6 @@ else if (!_loadFailed)
 }
 
 @code {
-    [Parameter]
-    public Guid RestaurantId { get; set; }
-
     private static readonly ReservationStatus[] ChangeableStatuses =
     [
         ReservationStatus.Confirmed,
@@ -169,8 +167,8 @@ else if (!_loadFailed)
 
         try
         {
-            _restaurant = await RestaurantApi.GetByIdAsync(RestaurantId);
-            _reservations = (await ReservationApi.GetByRestaurantAsync(RestaurantId)).ToList();
+            _restaurant = await RestaurantApi.GetCurrentAsync();
+            _reservations = (await ReservationApi.GetCurrentRestaurantAsync()).ToList();
         }
         catch (ApiClientException exception)
         {
@@ -191,7 +189,7 @@ else if (!_loadFailed)
 
         try
         {
-            var updated = await ReservationApi.ChangeStatusAsync(reservationId, status);
+            var updated = await ReservationApi.ChangeCurrentRestaurantStatusAsync(reservationId, status);
             var index = _reservations.FindIndex(reservation => reservation.Id == reservationId);
             if (index >= 0)
             {

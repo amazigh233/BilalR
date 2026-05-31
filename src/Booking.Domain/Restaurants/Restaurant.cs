@@ -32,6 +32,18 @@ public sealed class Restaurant
 
     public IReadOnlyCollection<OpeningHour> OpeningHours => _openingHours.AsReadOnly();
 
+    public void UpdateDetails(string name, string? phoneNumber = null, string? email = null)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Restaurant name is required.", nameof(name));
+        }
+
+        Name = name.Trim();
+        PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+    }
+
     public void AddOpeningHour(OpeningHour openingHour)
     {
         ArgumentNullException.ThrowIfNull(openingHour);

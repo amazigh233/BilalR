@@ -1,4 +1,5 @@
-@page "/admin/restaurants/{RestaurantId:guid}/opening-hours"
+@page "/admin/opening-hours"
+@attribute [Authorize(Roles = "Owner")]
 @rendermode InteractiveServer
 @using System.Globalization
 @inject RestaurantApiClient RestaurantApi
@@ -12,7 +13,7 @@
         <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
         <p class="text-muted mb-0">Bekijk en wijzig openingstijden per dag.</p>
     </div>
-    <a class="btn btn-outline-secondary" href="/admin/restaurants">Terug naar restaurants</a>
+    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
 </section>
 
 @if (!string.IsNullOrWhiteSpace(_successMessage))
@@ -72,9 +73,6 @@ else if (!_loadFailed)
 }
 
 @code {
-    [Parameter]
-    public Guid RestaurantId { get; set; }
-
     private static readonly DayOfWeek[] Days =
     [
         DayOfWeek.Monday,
@@ -100,8 +98,8 @@ else if (!_loadFailed)
 
         try
         {
-            _restaurant = await RestaurantApi.GetByIdAsync(RestaurantId);
-            var openingHours = await OpeningHoursApi.GetAsync(RestaurantId);
+            _restaurant = await RestaurantApi.GetCurrentAsync();
+            var openingHours = await OpeningHoursApi.GetCurrentRestaurantAsync();
             ApplyOpeningHours(openingHours.OpeningHours);
         }
         catch (ApiClientException exception)
@@ -149,8 +147,7 @@ else if (!_loadFailed)
                 return;
             }
 
-            var response = await OpeningHoursApi.SetAsync(
-                RestaurantId,
+            var response = await OpeningHoursApi.SetCurrentRestaurantAsync(
                 new SetOpeningHoursRequest(openingHours));
 
             ApplyOpeningHours(response.OpeningHours);

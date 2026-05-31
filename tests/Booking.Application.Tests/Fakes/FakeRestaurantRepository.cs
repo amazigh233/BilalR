@@ -25,6 +25,11 @@ public sealed class FakeRestaurantRepository : IRestaurantRepository
         return Task.FromResult(Restaurants.FirstOrDefault(restaurant => restaurant.Id == restaurantId));
     }
 
+    public Task UpdateAsync(Restaurant restaurant, CancellationToken cancellationToken = default)
+    {
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyCollection<OpeningHour>> GetOpeningHoursAsync(
         Guid restaurantId,
         CancellationToken cancellationToken = default)

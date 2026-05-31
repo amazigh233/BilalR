@@ -10,6 +10,8 @@ public interface IRestaurantRepository
 
     Task<Restaurant?> GetByIdAsync(Guid restaurantId, CancellationToken cancellationToken = default);
 
+    Task UpdateAsync(Restaurant restaurant, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<OpeningHour>> GetOpeningHoursAsync(
         Guid restaurantId,
         CancellationToken cancellationToken = default);

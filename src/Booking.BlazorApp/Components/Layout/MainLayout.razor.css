@@ -29,6 +29,10 @@ main {
         text-decoration: none;
     }
 
+    .top-row ::deep form {
+        margin: 0 0 0 0.75rem;
+    }
+
     .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
         text-decoration: underline;
     }

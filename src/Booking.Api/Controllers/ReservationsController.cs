@@ -1,5 +1,6 @@
 using Booking.Api.Contracts.Reservations;
 using Booking.Application.Reservations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Booking.Api.Controllers;
@@ -9,9 +10,10 @@ public sealed class ReservationsController(
     CreateReservationUseCase createReservationUseCase,
     GetReservationsUseCase getReservationsUseCase,
     GetReservationUseCase getReservationUseCase,
-    ChangeReservationStatusUseCase changeReservationStatusUseCase) : ApiControllerBase
+    ChangeRestaurantReservationStatusUseCase changeRestaurantReservationStatusUseCase) : ApiControllerBase
 {
     [HttpPost]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ReservationApiResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -56,6 +58,7 @@ public sealed class ReservationsController(
     }
 
     [HttpGet("{reservationId}")]
+    [Authorize(Policy = "RestaurantUser")]
     [ProducesResponseType(typeof(ReservationApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -69,6 +72,11 @@ public sealed class ReservationsController(
                 reservationId,
                 cancellationToken);
 
+            if (EnsureCurrentRestaurant(response.RestaurantId, out _) is { } accessError)
+            {
+                return accessError;
+            }
+
             return Ok(ToApiResponse(response));
         }
         catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException)
@@ -78,6 +86,7 @@ public sealed class ReservationsController(
     }
 
     [HttpGet("/api/restaurants/{restaurantId}/reservations")]
+    [Authorize(Policy = "RestaurantUser")]
     [ProducesResponseType(typeof(IReadOnlyCollection<ReservationApiResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
@@ -85,6 +94,78 @@ public sealed class ReservationsController(
         Guid restaurantId,
         CancellationToken cancellationToken)
     {
+        if (EnsureCurrentRestaurant(restaurantId, out var currentRestaurantId) is { } accessError)
+        {
+            return accessError;
+        }
+
+        try
+        {
+            var response = await getReservationsUseCase.ExecuteAsync(
+                new GetReservationsRequest(currentRestaurantId),
+                cancellationToken);
+
+            return Ok(response.Select(ToApiResponse).ToList());
+        }
+        catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException)
+        {
+            return HandleKnownException(exception);
+        }
+    }
+
+    [HttpPatch("{reservationId}/status")]
+    [Authorize(Policy = "RestaurantUser")]
+    [ProducesResponseType(typeof(ReservationApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ReservationApiResponse>> ChangeStatus(
+        Guid reservationId,
+        [FromBody] ChangeReservationStatusApiRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(ToError("Request body is required."));
+        }
+
+        if (!TryGetCurrentRestaurantId(out var restaurantId))
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            var response = await changeRestaurantReservationStatusUseCase.ExecuteAsync(
+                new ChangeRestaurantReservationStatusRequest(
+                    restaurantId,
+                    reservationId,
+                    request.Status),
+                cancellationToken);
+
+            return Ok(ToApiResponse(response));
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException
+                or InvalidOperationException
+                or KeyNotFoundException)
+        {
+            return HandleKnownException(exception);
+        }
+    }
+
+    [HttpGet("/api/admin/restaurant/reservations")]
+    [Authorize(Policy = "RestaurantUser")]
+    [ProducesResponseType(typeof(IReadOnlyCollection<ReservationApiResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyCollection<ReservationApiResponse>>> GetCurrentRestaurantReservations(
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentRestaurantId(out var restaurantId))
+        {
+            return Forbid();
+        }
+
         try
         {
             var response = await getReservationsUseCase.ExecuteAsync(
@@ -99,11 +180,12 @@ public sealed class ReservationsController(
         }
     }
 
-    [HttpPatch("{reservationId}/status")]
+    [HttpPatch("/api/admin/restaurant/reservations/{reservationId}/status")]
+    [Authorize(Policy = "RestaurantUser")]
     [ProducesResponseType(typeof(ReservationApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ReservationApiResponse>> ChangeStatus(
+    public async Task<ActionResult<ReservationApiResponse>> ChangeCurrentRestaurantReservationStatus(
         Guid reservationId,
         [FromBody] ChangeReservationStatusApiRequest? request,
         CancellationToken cancellationToken)
@@ -113,10 +195,16 @@ public sealed class ReservationsController(
             return BadRequest(ToError("Request body is required."));
         }
 
+        if (!TryGetCurrentRestaurantId(out var restaurantId))
+        {
+            return Forbid();
+        }
+
         try
         {
-            var response = await changeReservationStatusUseCase.ExecuteAsync(
-                new ChangeReservationStatusRequest(
+            var response = await changeRestaurantReservationStatusUseCase.ExecuteAsync(
+                new ChangeRestaurantReservationStatusRequest(
+                    restaurantId,
                     reservationId,
                     request.Status),
                 cancellationToken);
