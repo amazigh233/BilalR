@@ -32,6 +32,13 @@ public static class DevelopmentIdentitySeeder
 
         await EnsureRolesAsync(roleManager);
 
+        var platformAdminRestaurant = await EnsureRestaurantAsync(
+            dbContext,
+            options.PlatformAdminRestaurantName,
+            "+31 20 000 0099",
+            options.SuperAdminEmail,
+            environment);
+
         var primaryRestaurant = await EnsureRestaurantAsync(
             dbContext,
             options.PrimaryRestaurantName,
@@ -46,9 +53,22 @@ public static class DevelopmentIdentitySeeder
             options.SecondOwnerEmail,
             environment);
 
+        var superAdminPassword = ResolvePassword(
+            options.SuperAdminPassword,
+            environment,
+            options.SuperAdminEmail);
         var ownerPassword = ResolvePassword(options.OwnerPassword, environment, options.OwnerEmail);
         var staffPassword = ResolvePassword(options.StaffPassword, environment, options.StaffEmail);
         var secondOwnerPassword = ResolvePassword(options.SecondOwnerPassword, environment, options.SecondOwnerEmail);
+
+        await EnsureUserAsync(
+            userManager,
+            options.SuperAdminEmail,
+            "Demo SuperAdmin",
+            platformAdminRestaurant.Id,
+            BookingRoles.SuperAdmin,
+            superAdminPassword,
+            logger);
 
         await EnsureUserAsync(
             userManager,
@@ -203,7 +223,13 @@ public static class DevelopmentIdentitySeeder
 
         public string PrimaryRestaurantName { get; init; } = "Zambiq Bistro";
 
+        public string PlatformAdminRestaurantName { get; init; } = "Zambiq Platform Admin";
+
         public string SecondaryRestaurantName { get; init; } = "Zambiq Test Restaurant B";
+
+        public string SuperAdminEmail { get; init; } = "superadmin@zambiq.local";
+
+        public string? SuperAdminPassword { get; init; }
 
         public string OwnerEmail { get; init; } = "owner@zambiq.local";
 
@@ -224,8 +250,11 @@ public static class DevelopmentIdentitySeeder
             return new DevSeedOptions
             {
                 Enabled = section.GetValue<bool>("Enabled"),
+                PlatformAdminRestaurantName = section["PlatformAdminRestaurantName"] ?? "Zambiq Platform Admin",
                 PrimaryRestaurantName = section["PrimaryRestaurantName"] ?? "Zambiq Bistro",
                 SecondaryRestaurantName = section["SecondaryRestaurantName"] ?? "Zambiq Test Restaurant B",
+                SuperAdminEmail = section["SuperAdminEmail"] ?? "superadmin@zambiq.local",
+                SuperAdminPassword = section["SuperAdminPassword"],
                 OwnerEmail = section["OwnerEmail"] ?? "owner@zambiq.local",
                 OwnerPassword = section["OwnerPassword"],
                 StaffEmail = section["StaffEmail"] ?? "staff@zambiq.local",

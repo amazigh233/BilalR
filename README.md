@@ -78,6 +78,34 @@ Run de Blazor app:
 dotnet run --project src/Booking.BlazorApp/Booking.BlazorApp.csproj
 ```
 
+## Restaurantaccounts lokaal aanmaken
+
+Met Docker Compose kan een lokale SuperAdmin worden geseed door in `.env` dev seed aan te zetten:
+
+```text
+AUTH_DEV_SEED_ENABLED=true
+DEV_SUPERADMIN_EMAIL=superadmin@zambiq.local
+DEV_SUPERADMIN_PASSWORD=ChangeThis_LocalSuperAdmin_123!
+```
+
+Log daarna in via de Blazor app en open:
+
+```text
+http://localhost:5001/admin/restaurant-accounts/create
+```
+
+De pagina maakt via `POST /api/restaurant-accounts` een restaurant, een owner user en de `Owner` rolkoppeling aan. Users worden altijd via ASP.NET Identity aangemaakt; wachtwoorden worden niet als plain text opgeslagen.
+
+## Medewerkers lokaal beheren
+
+Restaurant owners kunnen medewerkers voor hun eigen restaurant aanmaken via:
+
+```text
+http://localhost:5001/admin/staff
+```
+
+De pagina gebruikt `POST /api/admin/staff`, `GET /api/admin/staff`, `PATCH /api/admin/staff/{userId}/disable` en `PATCH /api/admin/staff/{userId}/enable`. Het restaurant wordt altijd server-side bepaald uit de ingelogde owner; `RestaurantId` staat niet in de request body.
+
 ## MVP 1
 
 MVP 1 is bewust klein gehouden. De scope staat vast en wordt beschreven in [MVP_SCOPE.md](MVP_SCOPE.md).

@@ -64,7 +64,7 @@ else if (!_loadFailed)
 
         @if (!FilteredReservations.Any())
         {
-            <p class="empty-state">Geen reserveringen gevonden.</p>
+            <p class="empty-state"><strong>Geen reserveringen gevonden</strong>Pas de filters aan of vernieuw de lijst.</p>
         }
         else
         {
@@ -84,16 +84,16 @@ else if (!_loadFailed)
                         @foreach (var reservation in FilteredReservations)
                         {
                             <tr>
-                                <td>@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</td>
-                                <td>
+                                <td data-label="Datum">@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</td>
+                                <td data-label="Klant">
                                     <strong>@reservation.CustomerName</strong>
                                     <div class="text-muted small">@reservation.CustomerEmail</div>
                                     <div class="text-muted small">@(reservation.CustomerPhoneNumber ?? "-")</div>
                                 </td>
-                                <td>@reservation.PartySize</td>
-                                <td><span class="status-pill">@reservation.Status</span></td>
-                                <td class="reservation-note">@(string.IsNullOrWhiteSpace(reservation.Note) ? "-" : reservation.Note)</td>
-                                <td>
+                                <td data-label="Personen">@reservation.PartySize</td>
+                                <td data-label="Status"><span class="status-pill @GetStatusBadgeClass(reservation.Status)">@reservation.Status</span></td>
+                                <td data-label="Opmerking" class="reservation-note">@(string.IsNullOrWhiteSpace(reservation.Note) ? "-" : reservation.Note)</td>
+                                <td data-label="Wijzigen">
                                     <div class="table-actions">
                                         @foreach (var status in ChangeableStatuses)
                                         {
@@ -227,6 +227,18 @@ else if (!_loadFailed)
             ReservationStatus.Cancelled => "Annuleren",
             ReservationStatus.NoShow => "No-show",
             _ => status.ToString()
+        };
+    }
+
+    private static string GetStatusBadgeClass(ReservationStatus status)
+    {
+        return status switch
+        {
+            ReservationStatus.New => "status-new",
+            ReservationStatus.Confirmed => "status-confirmed",
+            ReservationStatus.Cancelled => "status-cancelled",
+            ReservationStatus.NoShow => "status-noshow",
+            _ => string.Empty
         };
     }
 }

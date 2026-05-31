@@ -1,19 +1,25 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
+<div class="app-shell">
+    <aside class="sidebar">
         <NavMenu />
-    </div>
+    </aside>
 
-    <main>
-        <div class="top-row px-4">
+    <main class="main-panel">
+        <div class="top-row">
+            <div class="topbar-meta">
+                <span class="topbar-label">Zambiq Booking</span>
+            </div>
             <AuthorizeView>
                 <Authorized>
-                    <span>@context.User.Identity?.Name</span>
-                    <form method="post" action="/auth/logout">
-                        <AntiforgeryToken />
-                        <button class="btn btn-outline-secondary btn-sm" type="submit">Uitloggen</button>
-                    </form>
+                    <div class="account-area">
+                        <span class="user-chip">@GetInitials(context.User.Identity?.Name)</span>
+                        <span class="account-name">@context.User.Identity?.Name</span>
+                        <form method="post" action="/auth/logout">
+                            <AntiforgeryToken />
+                            <button class="btn btn-outline-secondary btn-sm" type="submit">Uitloggen</button>
+                        </form>
+                    </div>
                 </Authorized>
                 <NotAuthorized>
                     <a class="btn btn-outline-secondary btn-sm" href="/login">Inloggen</a>
@@ -32,3 +38,22 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">x</span>
 </div>
+
+@code {
+    private static string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "Z";
+        }
+
+        var parts = name
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Take(2)
+            .ToList();
+
+        return parts.Count == 0
+            ? "Z"
+            : string.Concat(parts.Select(part => char.ToUpperInvariant(part[0])));
+    }
+}

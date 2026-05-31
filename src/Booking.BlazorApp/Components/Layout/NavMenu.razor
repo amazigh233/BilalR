@@ -1,6 +1,8 @@
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Booking</a>
+<div class="brand-row">
+    <div class="brand-mark">Z</div>
+    <div>
+        <a class="navbar-brand" href="">Zambiq</a>
+        <div class="brand-subtitle">Booking Platform</div>
     </div>
 </div>
 
@@ -8,51 +10,72 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
+        <div class="nav-section-label">Menu</div>
+        <div class="nav-item">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="nav-icon nav-icon-home" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
         <AuthorizeView>
             <Authorized Context="authState">
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Dashboard
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="admin/reservations">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reserveringen
-                    </NavLink>
-                </div>
-
-                <AuthorizeView Roles="Owner">
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/restaurant">
-                            <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Restaurant
+                <AuthorizeView Roles="Owner,Staff">
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin">
+                            <span class="nav-icon nav-icon-dashboard" aria-hidden="true"></span> Dashboard
                         </NavLink>
                     </div>
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="admin/opening-hours">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Openingstijden
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/reservations">
+                            <span class="nav-icon nav-icon-calendar" aria-hidden="true"></span> Reserveringen
                         </NavLink>
                     </div>
                 </AuthorizeView>
 
-                @if (TryGetRestaurantId(authState.User, out var restaurantId))
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="@($"booking/{restaurantId}")">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Publieke pagina
+                <AuthorizeView Roles="Owner">
+                    <div class="nav-section-label">Restaurant</div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/restaurant">
+                            <span class="nav-icon nav-icon-store" aria-hidden="true"></span> Restaurant
                         </NavLink>
                     </div>
-                }
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/opening-hours">
+                            <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Openingstijden
+                        </NavLink>
+                    </div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/staff">
+                            <span class="nav-icon nav-icon-users" aria-hidden="true"></span> Medewerkers
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="SuperAdmin">
+                    <div class="nav-section-label">Platform</div>
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/restaurant-accounts/create">
+                            <span class="nav-icon nav-icon-plus" aria-hidden="true"></span> Restaurantaccount
+                        </NavLink>
+                    </div>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="Owner,Staff">
+                    @if (TryGetRestaurantId(authState.User, out var restaurantId))
+                    {
+                        <div class="nav-section-label">Publiek</div>
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="@($"booking/{restaurantId}")">
+                                <span class="nav-icon nav-icon-link" aria-hidden="true"></span> Publieke pagina
+                            </NavLink>
+                        </div>
+                    }
+                </AuthorizeView>
             </Authorized>
             <NotAuthorized>
-                <div class="nav-item px-3">
+                <div class="nav-item">
                     <NavLink class="nav-link" href="login">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Inloggen
+                        <span class="nav-icon nav-icon-login" aria-hidden="true"></span> Inloggen
                     </NavLink>
                 </div>
             </NotAuthorized>

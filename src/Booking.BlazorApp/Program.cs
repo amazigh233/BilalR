@@ -33,7 +33,11 @@ builder.Services.AddHttpClient<AuthApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<RestaurantApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<RestaurantAccountApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<ReservationApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<StaffApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<OpeningHoursApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
@@ -101,6 +105,12 @@ app.MapPost("/auth/login", async (
             CookieAuthenticationDefaults.AuthenticationScheme,
             principal,
             properties);
+
+        if (returnUrl == "/admin" &&
+            login.User.Roles.Contains("SuperAdmin", StringComparer.Ordinal))
+        {
+            returnUrl = "/admin/restaurant-accounts/create";
+        }
 
         return Results.LocalRedirect(returnUrl);
     }

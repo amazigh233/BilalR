@@ -9,86 +9,96 @@
 
 <PageTitle>Reserveren</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Reserveren</p>
-        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
-        <p class="text-muted mb-0">Maak een reservering via de centrale booking API.</p>
-    </div>
-</section>
-
-@if (_isLoading)
-{
-    <div class="loading-state">Restaurant laden...</div>
-}
-else if (!string.IsNullOrWhiteSpace(_loadErrorMessage))
-{
-    <div class="alert alert-danger">@_loadErrorMessage</div>
-}
-else
-{
-    @if (!string.IsNullOrWhiteSpace(_successMessage))
-    {
-        <div class="alert alert-success">@_successMessage</div>
-    }
-
-    @if (!string.IsNullOrWhiteSpace(_errorMessage))
-    {
-        <div class="alert alert-danger">@_errorMessage</div>
-    }
-
-    <section class="booking-shell">
-        <EditForm Model="_form" FormName="public-booking" OnValidSubmit="SubmitAsync">
-            <DataAnnotationsValidator />
-            <ValidationSummary />
-
-            <div class="form-grid">
-                <div class="form-field">
-                    <label for="customer-name">Naam</label>
-                    <InputText id="customer-name" class="form-control" @bind-Value="_form.CustomerName" />
-                </div>
-
-                <div class="form-field">
-                    <label for="customer-phone">Telefoon</label>
-                    <InputText id="customer-phone" class="form-control" @bind-Value="_form.PhoneNumber" />
-                </div>
-
-                <div class="form-field">
-                    <label for="customer-email">E-mail</label>
-                    <InputText id="customer-email" class="form-control" @bind-Value="_form.Email" />
-                </div>
-
-                <div class="form-field">
-                    <label for="party-size">Aantal personen</label>
-                    <InputNumber id="party-size" class="form-control" @bind-Value="_form.PartySize" />
-                </div>
-
-                <div class="form-field">
-                    <label for="reservation-date">Datum</label>
-                    <InputDate id="reservation-date" class="form-control" @bind-Value="_form.Date" />
-                </div>
-
-                <div class="form-field">
-                    <label for="reservation-time">Tijd</label>
-                    <input id="reservation-time"
-                           class="form-control"
-                           type="time"
-                           value="@_form.Time"
-                           @onchange="eventArgs => _form.Time = eventArgs.Value?.ToString() ?? string.Empty" />
-                </div>
+<div class="public-booking-page">
+    <section class="public-booking-hero">
+        <div class="restaurant-identity-card">
+            <div class="restaurant-monogram">@GetRestaurantInitial()</div>
+            <div>
+                <p class="eyebrow mb-1">Reserveren</p>
+                <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
+                <p class="mb-0">Kies je moment en laat je gegevens achter.</p>
             </div>
-
-            <div class="form-field">
-                <label for="reservation-note">Opmerking</label>
-                <InputTextArea id="reservation-note" class="form-control" rows="4" @bind-Value="_form.Note" />
-            </div>
-
-            <button class="btn btn-primary booking-submit" type="submit" disabled="@_isSubmitting">
-                @(_isSubmitting ? "Versturen..." : "Reservering versturen")
-            </button>
-        </EditForm>
+        </div>
     </section>
-}
+
+    @if (_isLoading)
+    {
+        <div class="loading-state">Restaurant laden...</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_loadErrorMessage))
+    {
+        <div class="alert alert-danger">@_loadErrorMessage</div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_successMessage))
+        {
+            <div class="alert alert-success">@_successMessage</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_errorMessage))
+        {
+            <div class="alert alert-danger">@_errorMessage</div>
+        }
+
+        <section class="booking-shell">
+            <div class="section-heading">
+                <h2>Reserveringsaanvraag</h2>
+                <span class="section-subtitle">Direct doorgestuurd naar het restaurant</span>
+            </div>
+
+            <EditForm Model="_form" FormName="public-booking" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label for="customer-name">Naam</label>
+                        <InputText id="customer-name" class="form-control" @bind-Value="_form.CustomerName" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="customer-phone">Telefoon</label>
+                        <InputText id="customer-phone" class="form-control" @bind-Value="_form.PhoneNumber" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="customer-email">E-mail</label>
+                        <InputText id="customer-email" class="form-control" @bind-Value="_form.Email" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="party-size">Aantal personen</label>
+                        <InputNumber id="party-size" class="form-control" @bind-Value="_form.PartySize" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="reservation-date">Datum</label>
+                        <InputDate id="reservation-date" class="form-control" @bind-Value="_form.Date" />
+                    </div>
+
+                    <div class="form-field">
+                        <label for="reservation-time">Tijd</label>
+                        <input id="reservation-time"
+                               class="form-control"
+                               type="time"
+                               value="@_form.Time"
+                               @onchange="eventArgs => _form.Time = eventArgs.Value?.ToString() ?? string.Empty" />
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="reservation-note">Opmerking</label>
+                    <InputTextArea id="reservation-note" class="form-control" rows="4" @bind-Value="_form.Note" />
+                </div>
+
+                <button class="btn btn-primary booking-submit" type="submit" disabled="@_isSubmitting">
+                    @(_isSubmitting ? "Versturen..." : "Reservering versturen")
+                </button>
+            </EditForm>
+        </section>
+    }
+</div>
 
 @code {
     [Parameter]
@@ -200,5 +210,13 @@ else
 
         [StringLength(1000, ErrorMessage = "Opmerking mag maximaal 1000 tekens zijn.")]
         public string? Note { get; set; }
+    }
+
+    private string GetRestaurantInitial()
+    {
+        var name = _restaurant?.Name;
+        return string.IsNullOrWhiteSpace(name)
+            ? "R"
+            : char.ToUpperInvariant(name.Trim()[0]).ToString();
     }
 }

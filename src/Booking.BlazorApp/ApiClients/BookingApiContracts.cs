@@ -35,6 +35,33 @@ public sealed record UpdateRestaurantRequest(
     string? PhoneNumber,
     string? Email);
 
+public sealed record CreateRestaurantAccountRequest(
+    string RestaurantName,
+    string OwnerName,
+    string OwnerEmail,
+    string OwnerPassword,
+    string? PhoneNumber);
+
+public sealed record RestaurantAccountDto(
+    Guid RestaurantId,
+    Guid OwnerUserId,
+    string OwnerEmail);
+
+public sealed record CreateStaffRequest(
+    string Name,
+    string Email,
+    string TemporaryPassword,
+    string? PhoneNumber);
+
+public sealed record StaffUserDto(
+    Guid UserId,
+    string Name,
+    string Email,
+    string? PhoneNumber,
+    string Role,
+    Guid RestaurantId,
+    bool IsActive);
+
 public sealed record OpeningHoursDto(
     Guid RestaurantId,
     IReadOnlyCollection<OpeningHourDto> OpeningHours);

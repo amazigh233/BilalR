@@ -41,6 +41,8 @@ services:
       Authentication__Jwt__Audience: "Booking.BlazorApp"
       Authentication__Jwt__SigningKey: "${JWT_SIGNING_KEY:-}"
       Authentication__DevSeed__Enabled: "${AUTH_DEV_SEED_ENABLED:-false}"
+      Authentication__DevSeed__SuperAdminEmail: "${DEV_SUPERADMIN_EMAIL:-superadmin@zambiq.local}"
+      Authentication__DevSeed__SuperAdminPassword: "${DEV_SUPERADMIN_PASSWORD:-}"
       Authentication__DevSeed__OwnerPassword: "${DEV_OWNER_PASSWORD:-}"
       Authentication__DevSeed__StaffPassword: "${DEV_STAFF_PASSWORD:-}"
       Authentication__DevSeed__SecondOwnerPassword: "${DEV_SECOND_OWNER_PASSWORD:-}"

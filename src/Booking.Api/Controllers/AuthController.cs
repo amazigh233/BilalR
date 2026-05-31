@@ -41,6 +41,11 @@ public sealed class AuthController(
             return Unauthorized(ToError("Email or password is incorrect."));
         }
 
+        if (IsDisabled(user))
+        {
+            return Unauthorized(ToError("Account is uitgeschakeld."));
+        }
+
         try
         {
             var restaurant = await getRestaurantUseCase.ExecuteAsync(
@@ -112,5 +117,11 @@ public sealed class AuthController(
     public IActionResult Logout()
     {
         return NoContent();
+    }
+
+    private static bool IsDisabled(ApplicationUser user)
+    {
+        return user.LockoutEnd.HasValue &&
+            user.LockoutEnd.Value > DateTimeOffset.UtcNow;
     }
 }

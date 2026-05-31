@@ -29,15 +29,23 @@ else if (_restaurant is not null)
         <div class="stat-card">
             <span class="stat-label">Restaurant</span>
             <strong>@_restaurant.Name</strong>
+            <span class="text-muted small">Actieve beheeromgeving</span>
         </div>
         <a class="stat-card stat-link" href="/admin/reservations">
             <span class="stat-label">Reserveringen</span>
             <strong>@_reservations.Count</strong>
+            <span class="text-muted small">@_reservations.Count(reservation => reservation.Status == ReservationStatus.New) nieuw</span>
         </a>
         <AuthorizeView Roles="Owner">
             <a class="stat-card stat-link" href="/admin/opening-hours">
                 <span class="stat-label">Actie</span>
                 <strong>Openingstijden</strong>
+                <span class="text-muted small">Weekplanning beheren</span>
+            </a>
+            <a class="stat-card stat-link" href="/admin/staff">
+                <span class="stat-label">Team</span>
+                <strong>Medewerkers</strong>
+                <span class="text-muted small">Toegang beheren</span>
             </a>
         </AuthorizeView>
     </div>
@@ -49,7 +57,7 @@ else if (_restaurant is not null)
 
         @if (_reservations.Count == 0)
         {
-            <p class="empty-state">Nog geen reserveringen gevonden.</p>
+            <p class="empty-state"><strong>Nog geen reserveringen</strong>Nieuwe boekingen verschijnen hier zodra gasten reserveren.</p>
         }
         else
         {
@@ -63,7 +71,7 @@ else if (_restaurant is not null)
                             <strong>@reservation.CustomerName</strong>
                             <div class="text-muted small">@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</div>
                         </div>
-                        <span class="status-pill">@reservation.Status</span>
+                        <span class="status-pill @GetStatusBadgeClass(reservation.Status)">@reservation.Status</span>
                     </div>
                 }
             </div>
@@ -92,5 +100,17 @@ else if (_restaurant is not null)
         {
             _isLoading = false;
         }
+    }
+
+    private static string GetStatusBadgeClass(ReservationStatus status)
+    {
+        return status switch
+        {
+            ReservationStatus.New => "status-new",
+            ReservationStatus.Confirmed => "status-confirmed",
+            ReservationStatus.Cancelled => "status-cancelled",
+            ReservationStatus.NoShow => "status-noshow",
+            _ => string.Empty
+        };
     }
 }

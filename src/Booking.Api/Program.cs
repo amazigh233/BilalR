@@ -115,6 +115,8 @@ builder.Services
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("SuperAdmin", policy =>
+        policy.RequireRole(BookingRoles.SuperAdmin));
     options.AddPolicy("RestaurantUser", policy =>
         policy.RequireRole(BookingRoles.Owner, BookingRoles.Staff));
     options.AddPolicy("RestaurantOwner", policy =>
@@ -151,3 +153,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program
+{
+}

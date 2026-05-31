@@ -1,0 +1,218 @@
+@page "/admin/staff"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject StaffApiClient StaffApi
+
+<PageTitle>Medewerkers</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Medewerkers</h1>
+        <p class="text-muted mb-0">Beheer medewerkers voor je eigen restaurant.</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<div class="responsive-grid">
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Medewerker toevoegen</h2>
+        </div>
+
+        <EditForm Model="_form" FormName="create-staff" OnValidSubmit="CreateAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-field">
+                <label for="staff-name">Naam</label>
+                <InputText id="staff-name" class="form-control" @bind-Value="_form.Name" />
+            </div>
+
+            <div class="form-field">
+                <label for="staff-email">E-mail</label>
+                <InputText id="staff-email" class="form-control" type="email" @bind-Value="_form.Email" />
+            </div>
+
+            <div class="form-field">
+                <label for="staff-phone">Telefoon</label>
+                <InputText id="staff-phone" class="form-control" @bind-Value="_form.PhoneNumber" />
+            </div>
+
+            <div class="form-field">
+                <label for="staff-password">Tijdelijk wachtwoord</label>
+                <InputText id="staff-password" class="form-control" type="password" @bind-Value="_form.TemporaryPassword" />
+            </div>
+
+            <button class="btn btn-primary" type="submit" disabled="@_isSaving">
+                @(_isSaving ? "Aanmaken..." : "Medewerker aanmaken")
+            </button>
+        </EditForm>
+    </section>
+
+    <section class="content-section">
+        <div class="section-heading">
+            <h2>Overzicht</h2>
+            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="LoadAsync" disabled="@_isLoading">
+                Vernieuwen
+            </button>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-state">Medewerkers laden...</div>
+        }
+        else if (_staff.Count == 0)
+        {
+            <p class="empty-state"><strong>Nog geen medewerkers</strong>Voeg een medewerker toe zodat je team reserveringen kan beheren.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var staff in _staff.OrderBy(staff => staff.Name).ThenBy(staff => staff.Email))
+                {
+                    <div class="list-row">
+                        <div>
+                            <strong>@staff.Name</strong>
+                            <div class="text-muted small">@staff.Email</div>
+                            <div class="text-muted small">@(string.IsNullOrWhiteSpace(staff.PhoneNumber) ? "-" : staff.PhoneNumber)</div>
+                        </div>
+                        <div class="row-actions">
+                            <span class="status-pill">@staff.Role</span>
+                            <span class="status-pill @(staff.IsActive ? "status-confirmed" : "status-pill-muted")">
+                                @(staff.IsActive ? "Actief" : "Inactief")
+                            </span>
+                            <button class="btn btn-outline-secondary btn-sm"
+                                    type="button"
+                                    disabled="@_updatingUserIds.Contains(staff.UserId)"
+                                    @onclick="() => ToggleActiveAsync(staff)">
+                                @(staff.IsActive ? "Uitschakelen" : "Inschakelen")
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private StaffForm _form = new();
+    private List<StaffUserDto> _staff = [];
+    private readonly HashSet<Guid> _updatingUserIds = [];
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _staff = (await StaffApi.GetAllAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            var created = await StaffApi.CreateAsync(
+                new CreateStaffRequest(
+                    _form.Name,
+                    _form.Email,
+                    _form.TemporaryPassword,
+                    _form.PhoneNumber));
+
+            _staff.Add(created);
+            _successMessage = "Medewerker aangemaakt.";
+            _form = new StaffForm();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ToggleActiveAsync(StaffUserDto staff)
+    {
+        _errorMessage = null;
+        _successMessage = null;
+        _updatingUserIds.Add(staff.UserId);
+
+        try
+        {
+            var updated = staff.IsActive
+                ? await StaffApi.DisableAsync(staff.UserId)
+                : await StaffApi.EnableAsync(staff.UserId);
+
+            var index = _staff.FindIndex(existing => existing.UserId == staff.UserId);
+            if (index >= 0)
+            {
+                _staff[index] = updated;
+            }
+
+            _successMessage = updated.IsActive
+                ? "Medewerker ingeschakeld."
+                : "Medewerker uitgeschakeld.";
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _updatingUserIds.Remove(staff.UserId);
+        }
+    }
+
+    private sealed class StaffForm
+    {
+        [Required(ErrorMessage = "Naam is verplicht.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "E-mail is verplicht.")]
+        [EmailAddress(ErrorMessage = "Gebruik een geldig e-mailadres.")]
+        public string Email { get; set; } = string.Empty;
+
+        public string? PhoneNumber { get; set; }
+
+        [Required(ErrorMessage = "Tijdelijk wachtwoord is verplicht.")]
+        public string TemporaryPassword { get; set; } = string.Empty;
+    }
+}
