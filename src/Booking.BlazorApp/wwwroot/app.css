@@ -523,6 +523,10 @@ h1:focus {
     font-weight: 900;
 }
 
+.public-shell {
+    padding: var(--space-5) var(--space-4);
+}
+
 .public-booking-page {
     max-width: 980px;
     margin: 0 auto;
