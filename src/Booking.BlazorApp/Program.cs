@@ -43,6 +43,8 @@ builder.Services.AddHttpClient<OpeningHoursApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<AvailabilityApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<AnalyticsApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
 
 var app = builder.Build();
 
@@ -60,6 +62,25 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseAntiforgery();
+
+// Allow the embed route to be framed on any customer website. Blazor component pages send
+// X-Frame-Options: SAMEORIGIN + CSP frame-ancestors 'self' by default (anti-clickjacking),
+// which would block the iframe widget cross-origin. We relax this only for /embed/*.
+// (Later: restrict frame-ancestors to a per-restaurant allowlist.)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/embed"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.Remove("X-Frame-Options");
+            context.Response.Headers["Content-Security-Policy"] = "frame-ancestors *";
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
 
 app.MapPost("/auth/login", async (
     [FromForm] LoginForm form,

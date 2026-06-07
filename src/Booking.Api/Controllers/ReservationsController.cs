@@ -2,6 +2,7 @@ using Booking.Api.Contracts.Reservations;
 using Booking.Application.Reservations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Booking.Api.Controllers;
 
@@ -14,6 +15,7 @@ public sealed class ReservationsController(
 {
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting("public")]
     [ProducesResponseType(typeof(ReservationApiResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]

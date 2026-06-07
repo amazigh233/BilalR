@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using Booking.Api.Contracts.Auth;
+using Booking.Application.Abstractions;
+using Booking.Domain.Customers;
+using Booking.Domain.Reservations;
 using Booking.Domain.Restaurants;
 using Booking.Infrastructure.Identity;
 using Booking.Infrastructure.Persistence;
@@ -94,6 +97,30 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncDi
         return (user, restaurant);
     }
 
+    public async Task<Guid> SeedReservationAsync(Guid restaurantId, string customerEmail = "seed-customer@example.com")
+    {
+        using var scope = Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BookingDbContext>();
+
+        var customer = new Customer("Seed Customer", customerEmail);
+        var reservation = new Reservation(restaurantId, customer, DateTime.UtcNow.AddDays(1), 2);
+
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        return reservation.Id;
+    }
+
+    public async Task SeedOpeningHoursAsync(Guid restaurantId, DayOfWeek dayOfWeek, TimeOnly opensAt, TimeOnly closesAt)
+    {
+        using var scope = Services.CreateScope();
+        var restaurantRepository = scope.ServiceProvider.GetRequiredService<IRestaurantRepository>();
+
+        await restaurantRepository.SetOpeningHoursAsync(
+            restaurantId,
+            [new OpeningHour(dayOfWeek, opensAt, closesAt)]);
+    }
+
     public async Task<string> LoginAsync(
         HttpClient client,
         string email,
@@ -126,7 +153,9 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncDi
             {
                 ["ConnectionStrings:BookingDatabase"] = _connectionString,
                 ["Authentication:Jwt:SigningKey"] = JwtSigningKey,
-                ["Authentication:DevSeed:Enabled"] = "false"
+                ["Authentication:DevSeed:Enabled"] = "false",
+                // Keep tests decoupled from the production rate limit.
+                ["RateLimiting:Public:PermitLimit"] = "100000"
             });
         });
 

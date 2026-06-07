@@ -523,6 +523,60 @@ h1:focus {
     font-weight: 900;
 }
 
+.public-shell {
+    padding: var(--space-5) var(--space-4);
+}
+
+.analytics-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.analytics-filters .form-field {
+    max-width: 200px;
+}
+
+.bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.bar-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 48px;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.bar-row .bar-label {
+    color: var(--color-muted);
+    font-size: 0.875rem;
+}
+
+.bar-track {
+    background: var(--color-line);
+    border-radius: var(--radius-sm);
+    height: 14px;
+    overflow: hidden;
+}
+
+.bar-fill {
+    background: var(--color-primary);
+    height: 100%;
+    min-width: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.bar-row .bar-value {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-ink);
+}
+
 .public-booking-page {
     max-width: 980px;
     margin: 0 auto;

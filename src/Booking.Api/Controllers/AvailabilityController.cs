@@ -1,6 +1,7 @@
 using Booking.Api.Contracts.Availability;
 using Booking.Application.Availability;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Booking.Api.Controllers;
 
@@ -9,6 +10,7 @@ public sealed class AvailabilityController(
     CheckAvailabilityUseCase checkAvailabilityUseCase) : ApiControllerBase
 {
     [HttpGet]
+    [EnableRateLimiting("public")]
     [ProducesResponseType(typeof(AvailabilityApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
