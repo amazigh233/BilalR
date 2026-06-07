@@ -1,0 +1,102 @@
+@page "/admin/availability"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject StaffAvailabilityApiClient AvailabilityApi
+@inject StaffApiClient StaffApi
+
+<PageTitle>Beschikbaarheid team</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Beschikbaarheid team</h1>
+        <p class="text-muted mb-0">Wanneer je medewerkers kunnen werken.</p>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else
+{
+    <section class="content-section">
+        @if (_staff.Count == 0)
+        {
+            <p class="empty-state"><strong>Nog geen medewerkers</strong>Maak eerst medewerkers aan.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var member in _staff)
+                {
+                    var slots = _slots
+                        .Where(slot => slot.StaffUserId == member.UserId)
+                        .OrderBy(slot => slot.DayOfWeek)
+                        .ThenBy(slot => slot.StartTime)
+                        .ToList();
+
+                    <div class="list-row">
+                        <div>
+                            <strong>@member.Name</strong>
+                            <div class="text-muted small">
+                                @if (slots.Count == 0)
+                                {
+                                    <span>Geen beschikbaarheid opgegeven</span>
+                                }
+                                else
+                                {
+                                    @string.Join(" · ", slots.Select(slot =>
+                                        $"{DutchDay(slot.DayOfWeek)} {slot.StartTime:HH\\:mm}-{slot.EndTime:HH\\:mm}"))
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private List<StaffUserDto> _staff = [];
+    private List<AvailabilitySlotDto> _slots = [];
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _staff = (await StaffApi.GetAllAsync()).ToList();
+            _slots = (await AvailabilityApi.GetForRestaurantAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string DutchDay(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Ma",
+            DayOfWeek.Tuesday => "Di",
+            DayOfWeek.Wednesday => "Wo",
+            DayOfWeek.Thursday => "Do",
+            DayOfWeek.Friday => "Vr",
+            DayOfWeek.Saturday => "Za",
+            DayOfWeek.Sunday => "Zo",
+            _ => dayOfWeek.ToString()
+        };
+    }
+}

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Booking.Api.Authentication;
 using Booking.Api.Contracts.Common;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +28,12 @@ public abstract class ApiControllerBase : ControllerBase
     {
         var value = User.FindFirst(BookingClaimTypes.RestaurantId)?.Value;
         return Guid.TryParse(value, out restaurantId);
+    }
+
+    protected bool TryGetCurrentUserId(out Guid userId)
+    {
+        var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(value, out userId);
     }
 
     protected ActionResult? EnsureCurrentRestaurant(Guid requestedRestaurantId, out Guid currentRestaurantId)

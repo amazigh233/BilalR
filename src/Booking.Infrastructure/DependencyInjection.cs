@@ -28,6 +28,11 @@ public static class DependencyInjection
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+        services.AddScoped<IShiftRepository, ShiftRepository>();
+        services.AddScoped<IStaffAvailabilityRepository, StaffAvailabilityRepository>();
+        services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
+        services.AddScoped<IDeliveryOrderRepository, DeliveryOrderRepository>();
+        services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
 
         var emailOptions = new EmailOptions

@@ -139,3 +139,96 @@ public sealed record DailyCountDto(DateOnly Date, int Count);
 public sealed record WeekdayCountDto(DayOfWeek DayOfWeek, int Count);
 
 public sealed record HourlyCountDto(int Hour, int Count);
+
+public sealed record ShiftDto(
+    Guid Id,
+    Guid RestaurantId,
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
+
+public sealed record CreateShiftRequest(
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
+
+public sealed record UpdateShiftRequest(
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
+
+public sealed record AvailabilitySlotDto(
+    Guid StaffUserId,
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public sealed record SetAvailabilityRequest(IReadOnlyCollection<AvailabilitySlotItem> Slots);
+
+public sealed record AvailabilitySlotItem(
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public enum LeaveStatus
+{
+    Pending,
+    Approved,
+    Denied
+}
+
+public sealed record LeaveRequestDto(
+    Guid Id,
+    Guid StaffUserId,
+    DateOnly FromDate,
+    DateOnly ToDate,
+    string? Reason,
+    LeaveStatus Status,
+    DateTime CreatedAtUtc,
+    DateTime? DecidedAtUtc);
+
+public sealed record CreateLeaveRequest(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    string? Reason);
+
+public enum DeliveryProvider
+{
+    Thuisbezorgd,
+    UberEats
+}
+
+public sealed record DeliveryOrderDto(
+    Guid Id,
+    DeliveryProvider Provider,
+    string ExternalOrderId,
+    string CustomerName,
+    string? CustomerPhone,
+    string? DeliveryAddress,
+    string? Note,
+    string Status,
+    decimal TotalAmount,
+    string Currency,
+    DateTime PlacedAtUtc,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<DeliveryOrderLineDto> Items);
+
+public sealed record DeliveryOrderLineDto(string Name, int Quantity, decimal UnitPrice);
+
+public sealed record DeliveryIntegrationDto(
+    DeliveryProvider Provider,
+    bool Connected,
+    bool Enabled,
+    DateTime? CreatedAtUtc,
+    DateTime? LastRotatedAtUtc);
+
+public sealed record ConnectDeliveryDto(
+    DeliveryProvider Provider,
+    string WebhookUrl,
+    string Secret);

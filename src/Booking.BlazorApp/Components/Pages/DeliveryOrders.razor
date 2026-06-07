@@ -1,0 +1,132 @@
+@page "/admin/bezorgorders"
+@attribute [Authorize(Roles = "Owner,Staff")]
+@rendermode InteractiveServer
+@inject DeliveryApiClient DeliveryApi
+
+<PageTitle>Bezorgorders</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Menu</p>
+        <h1>Bezorgorders</h1>
+        <p class="text-muted mb-0">Binnenkomende orders van Thuisbezorgd en Uber Eats.</p>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_isLoading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else if (_orders.Count == 0)
+{
+    <p class="empty-state">
+        <strong>Nog geen bezorgorders</strong>
+        Zodra een gekoppeld platform een order doorstuurt, verschijnt die hier.
+    </p>
+}
+else
+{
+    <section class="content-section">
+        <div class="list-stack">
+            @foreach (var order in _orders)
+            {
+                <div class="list-row delivery-order">
+                    <div class="delivery-order-main">
+                        <div class="delivery-order-head">
+                            <span class="provider-badge provider-@order.Provider.ToString().ToLowerInvariant()">
+                                @ProviderLabel(order.Provider)
+                            </span>
+                            <strong>@order.CustomerName</strong>
+                            <span class="text-muted small">#@order.ExternalOrderId</span>
+                        </div>
+                        <div class="text-muted small">
+                            @order.PlacedAtUtc.ToLocalTime().ToString("dd-MM-yyyy HH:mm")
+                            @if (!string.IsNullOrWhiteSpace(order.DeliveryAddress))
+                            {
+                                <span> · @order.DeliveryAddress</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(order.CustomerPhone))
+                            {
+                                <span> · @order.CustomerPhone</span>
+                            }
+                        </div>
+                        @if (order.Items.Count > 0)
+                        {
+                            <ul class="delivery-order-items">
+                                @foreach (var item in order.Items)
+                                {
+                                    <li>@item.Quantity× @item.Name <span class="text-muted">(@FormatMoney(item.UnitPrice, order.Currency))</span></li>
+                                }
+                            </ul>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(order.Note))
+                        {
+                            <div class="text-muted small">Opmerking: @order.Note</div>
+                        }
+                    </div>
+                    <div class="delivery-order-side">
+                        <span class="leave-badge leave-badge-pending">@order.Status</span>
+                        <strong>@FormatMoney(order.TotalAmount, order.Currency)</strong>
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    private List<DeliveryOrderDto> _orders = [];
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _orders = (await DeliveryApi.GetOrdersAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatMoney(decimal amount, string currency)
+    {
+        var symbol = currency switch
+        {
+            "EUR" => "€",
+            "USD" => "$",
+            "GBP" => "£",
+            _ => currency + " "
+        };
+        return $"{symbol}{amount:0.00}";
+    }
+
+    private static string ProviderLabel(DeliveryProvider provider)
+    {
+        return provider switch
+        {
+            DeliveryProvider.Thuisbezorgd => "Thuisbezorgd",
+            DeliveryProvider.UberEats => "Uber Eats",
+            _ => provider.ToString()
+        };
+    }
+}

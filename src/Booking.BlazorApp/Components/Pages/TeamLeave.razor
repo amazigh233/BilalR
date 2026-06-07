@@ -1,0 +1,174 @@
+@page "/admin/leave"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject LeaveApiClient LeaveApi
+@inject StaffApiClient StaffApi
+
+<PageTitle>Verlof team</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Verlof team</h1>
+        <p class="text-muted mb-0">Beoordeel verlofaanvragen van je medewerkers.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_isLoading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else
+{
+    <section class="content-section">
+        <h2 class="section-title">Openstaande aanvragen</h2>
+        @{
+            var pending = _leave.Where(l => l.Status == LeaveStatus.Pending)
+                .OrderBy(l => l.FromDate).ToList();
+        }
+        @if (pending.Count == 0)
+        {
+            <p class="empty-state"><strong>Niets te beoordelen</strong>Er zijn geen openstaande aanvragen.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var item in pending)
+                {
+                    <div class="list-row">
+                        <div>
+                            <strong>@StaffName(item.StaffUserId)</strong>
+                            <div class="text-muted small">
+                                @item.FromDate.ToString("dd-MM-yyyy") – @item.ToDate.ToString("dd-MM-yyyy")
+                                @if (!string.IsNullOrWhiteSpace(item.Reason))
+                                {
+                                    <span> · @item.Reason</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary btn-sm" @onclick="() => DecideAsync(item.Id, true)"
+                                    disabled="@_busyId.HasValue">Goedkeuren</button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => DecideAsync(item.Id, false)"
+                                    disabled="@_busyId.HasValue">Afwijzen</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="content-section">
+        <h2 class="section-title">Afgehandeld</h2>
+        @{
+            var decided = _leave.Where(l => l.Status != LeaveStatus.Pending)
+                .OrderByDescending(l => l.DecidedAtUtc).ToList();
+        }
+        @if (decided.Count == 0)
+        {
+            <p class="empty-state"><strong>Nog niets afgehandeld</strong>Beoordeelde aanvragen verschijnen hier.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var item in decided)
+                {
+                    <div class="list-row">
+                        <div>
+                            <strong>@StaffName(item.StaffUserId)</strong>
+                            <div class="text-muted small">
+                                @item.FromDate.ToString("dd-MM-yyyy") – @item.ToDate.ToString("dd-MM-yyyy")
+                                @if (!string.IsNullOrWhiteSpace(item.Reason))
+                                {
+                                    <span> · @item.Reason</span>
+                                }
+                            </div>
+                        </div>
+                        <span class="leave-badge leave-badge-@item.Status.ToString().ToLowerInvariant()">
+                            @StatusLabel(item.Status)
+                        </span>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private List<LeaveRequestDto> _leave = [];
+    private List<StaffUserDto> _staff = [];
+    private bool _isLoading = true;
+    private Guid? _busyId;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _staff = (await StaffApi.GetAllAsync()).ToList();
+            _leave = (await LeaveApi.GetForRestaurantAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task DecideAsync(Guid leaveId, bool approve)
+    {
+        _errorMessage = null;
+        _busyId = leaveId;
+        try
+        {
+            if (approve)
+            {
+                await LeaveApi.ApproveAsync(leaveId);
+            }
+            else
+            {
+                await LeaveApi.DenyAsync(leaveId);
+            }
+
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _busyId = null;
+        }
+    }
+
+    private string StaffName(Guid staffUserId)
+    {
+        return _staff.FirstOrDefault(s => s.UserId == staffUserId)?.Name ?? "Onbekende medewerker";
+    }
+
+    private static string StatusLabel(LeaveStatus status)
+    {
+        return status switch
+        {
+            LeaveStatus.Pending => "In behandeling",
+            LeaveStatus.Approved => "Goedgekeurd",
+            LeaveStatus.Denied => "Afgewezen",
+            _ => status.ToString()
+        };
+    }
+}
