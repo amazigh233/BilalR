@@ -1,0 +1,175 @@
+@page "/mijn-beschikbaarheid"
+@attribute [Authorize(Roles = "Owner,Staff")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject StaffAvailabilityApiClient AvailabilityApi
+
+<PageTitle>Mijn beschikbaarheid</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Rooster</p>
+        <h1>Mijn beschikbaarheid</h1>
+        <p class="text-muted mb-0">Geef per dag aan wanneer je kunt werken.</p>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+
+    <section class="content-section">
+        <div class="list-stack">
+            @foreach (var row in _rows)
+            {
+                <div class="availability-row">
+                    <label class="availability-day">
+                        <input type="checkbox" checked="@row.Enabled"
+                               @onchange="e => row.Enabled = (bool)(e.Value ?? false)" />
+                        @DutchDay(row.DayOfWeek)
+                    </label>
+                    <input type="time" class="form-control" value="@row.Start"
+                           disabled="@(!row.Enabled)"
+                           @onchange="e => row.Start = e.Value?.ToString() ?? string.Empty" />
+                    <span>tot</span>
+                    <input type="time" class="form-control" value="@row.End"
+                           disabled="@(!row.Enabled)"
+                           @onchange="e => row.End = e.Value?.ToString() ?? string.Empty" />
+                </div>
+            }
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_isSaving">
+                @(_isSaving ? "Opslaan..." : "Opslaan")
+            </button>
+        </div>
+    </section>
+}
+
+@code {
+    private readonly List<DayRow> _rows = CreateRows();
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _message;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            var slots = await AvailabilityApi.GetMineAsync();
+            foreach (var row in _rows)
+            {
+                var slot = slots.FirstOrDefault(item => item.DayOfWeek == row.DayOfWeek);
+                if (slot is not null)
+                {
+                    row.Enabled = true;
+                    row.Start = slot.StartTime.ToString("HH:mm");
+                    row.End = slot.EndTime.ToString("HH:mm");
+                }
+            }
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _message = null;
+        _errorMessage = null;
+
+        var slots = new List<AvailabilitySlotItem>();
+        foreach (var row in _rows.Where(item => item.Enabled))
+        {
+            if (!TimeOnly.TryParseExact(row.Start, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start) ||
+                !TimeOnly.TryParseExact(row.End, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end))
+            {
+                _errorMessage = $"Controleer de tijden voor {DutchDay(row.DayOfWeek)}.";
+                return;
+            }
+
+            if (end <= start)
+            {
+                _errorMessage = $"Eindtijd moet na starttijd liggen voor {DutchDay(row.DayOfWeek)}.";
+                return;
+            }
+
+            slots.Add(new AvailabilitySlotItem(row.DayOfWeek, start, end));
+        }
+
+        _isSaving = true;
+        try
+        {
+            await AvailabilityApi.SetMineAsync(new SetAvailabilityRequest(slots));
+            _message = "Beschikbaarheid opgeslagen.";
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private static List<DayRow> CreateRows()
+    {
+        var order = new[]
+        {
+            DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday,
+            DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday
+        };
+
+        return order.Select(day => new DayRow { DayOfWeek = day }).ToList();
+    }
+
+    private static string DutchDay(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Maandag",
+            DayOfWeek.Tuesday => "Dinsdag",
+            DayOfWeek.Wednesday => "Woensdag",
+            DayOfWeek.Thursday => "Donderdag",
+            DayOfWeek.Friday => "Vrijdag",
+            DayOfWeek.Saturday => "Zaterdag",
+            DayOfWeek.Sunday => "Zondag",
+            _ => dayOfWeek.ToString()
+        };
+    }
+
+    private sealed class DayRow
+    {
+        public DayOfWeek DayOfWeek { get; init; }
+        public bool Enabled { get; set; }
+        public string Start { get; set; } = "09:00";
+        public string End { get; set; } = "17:00";
+    }
+}

@@ -113,6 +113,13 @@ builder.Services.AddScoped<UpdateShiftUseCase>();
 builder.Services.AddScoped<DeleteShiftUseCase>();
 builder.Services.AddScoped<GetShiftsUseCase>();
 builder.Services.AddScoped<GetStaffShiftsUseCase>();
+builder.Services.AddScoped<GetStaffAvailabilityUseCase>();
+builder.Services.AddScoped<SetStaffAvailabilityUseCase>();
+builder.Services.AddScoped<GetRestaurantAvailabilityUseCase>();
+builder.Services.AddScoped<RequestLeaveUseCase>();
+builder.Services.AddScoped<GetStaffLeaveUseCase>();
+builder.Services.AddScoped<GetRestaurantLeaveUseCase>();
+builder.Services.AddScoped<DecideLeaveUseCase>();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services

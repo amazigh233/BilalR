@@ -666,6 +666,85 @@ h1:focus {
     margin-top: var(--space-4);
 }
 
+.availability-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) 0;
+}
+
+.availability-row .availability-day {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 140px;
+    font-weight: 600;
+}
+
+.availability-row .form-control {
+    max-width: 140px;
+}
+
+.section-title {
+    margin: 0 0 var(--space-3);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-ink);
+}
+
+.leave-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    align-items: end;
+}
+
+.leave-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.leave-form-field .form-control {
+    max-width: 200px;
+}
+
+.leave-form-field-wide {
+    flex: 1 1 260px;
+}
+
+.leave-form-field-wide .form-control {
+    max-width: none;
+}
+
+.leave-form .form-actions {
+    margin-top: 0;
+}
+
+.leave-badge {
+    align-self: center;
+    white-space: nowrap;
+    padding: var(--space-1) var(--space-3);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.leave-badge-pending {
+    background: #fff4d6;
+    color: #8a6100;
+}
+
+.leave-badge-approved {
+    background: #d8f3e3;
+    color: #1d6b43;
+}
+
+.leave-badge-denied {
+    background: #fbddde;
+    color: #9b2530;
+}
+
 .public-booking-page {
     max-width: 980px;
     margin: 0 auto;

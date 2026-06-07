@@ -1,0 +1,163 @@
+@page "/mijn-verlof"
+@attribute [Authorize(Roles = "Owner,Staff")]
+@rendermode InteractiveServer
+@inject LeaveApiClient LeaveApi
+
+<PageTitle>Mijn verlof</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Rooster</p>
+        <h1>Mijn verlof</h1>
+        <p class="text-muted mb-0">Vraag verlof aan en bekijk de status van je aanvragen.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_message))
+{
+    <div class="alert alert-success">@_message</div>
+}
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<section class="content-section">
+    <h2 class="section-title">Nieuwe aanvraag</h2>
+    <div class="leave-form">
+        <div class="leave-form-field">
+            <label class="form-label">Van</label>
+            <input type="date" class="form-control" value="@_fromDate"
+                   @onchange="e => _fromDate = e.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="leave-form-field">
+            <label class="form-label">Tot en met</label>
+            <input type="date" class="form-control" value="@_toDate"
+                   @onchange="e => _toDate = e.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="leave-form-field leave-form-field-wide">
+            <label class="form-label">Reden (optioneel)</label>
+            <input type="text" class="form-control" maxlength="500" value="@_reason"
+                   @onchange="e => _reason = e.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_isSubmitting">
+                @(_isSubmitting ? "Versturen..." : "Verlof aanvragen")
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="content-section">
+    <h2 class="section-title">Mijn aanvragen</h2>
+    @if (_isLoading)
+    {
+        <div class="loading-state">Laden...</div>
+    }
+    else if (_leave.Count == 0)
+    {
+        <p class="empty-state"><strong>Nog geen aanvragen</strong>Je hebt nog geen verlof aangevraagd.</p>
+    }
+    else
+    {
+        <div class="list-stack">
+            @foreach (var item in _leave.OrderByDescending(l => l.CreatedAtUtc))
+            {
+                <div class="list-row">
+                    <div>
+                        <strong>@item.FromDate.ToString("dd-MM-yyyy") – @item.ToDate.ToString("dd-MM-yyyy")</strong>
+                        <div class="text-muted small">
+                            @(string.IsNullOrWhiteSpace(item.Reason) ? "Geen reden opgegeven" : item.Reason)
+                        </div>
+                    </div>
+                    <span class="leave-badge leave-badge-@item.Status.ToString().ToLowerInvariant()">
+                        @StatusLabel(item.Status)
+                    </span>
+                </div>
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private List<LeaveRequestDto> _leave = [];
+    private string _fromDate = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _toDate = DateTime.Today.ToString("yyyy-MM-dd");
+    private string _reason = string.Empty;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private string? _message;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _leave = (await LeaveApi.GetMineAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _message = null;
+        _errorMessage = null;
+
+        if (!DateOnly.TryParse(_fromDate, out var from) || !DateOnly.TryParse(_toDate, out var to))
+        {
+            _errorMessage = "Controleer de gekozen datums.";
+            return;
+        }
+
+        if (to < from)
+        {
+            _errorMessage = "De einddatum mag niet vóór de startdatum liggen.";
+            return;
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            await LeaveApi.RequestAsync(new CreateLeaveRequest(
+                from,
+                to,
+                string.IsNullOrWhiteSpace(_reason) ? null : _reason.Trim()));
+
+            _message = "Verlofaanvraag verstuurd.";
+            _reason = string.Empty;
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private static string StatusLabel(LeaveStatus status)
+    {
+        return status switch
+        {
+            LeaveStatus.Pending => "In behandeling",
+            LeaveStatus.Approved => "Goedgekeurd",
+            LeaveStatus.Denied => "Afgewezen",
+            _ => status.ToString()
+        };
+    }
+}

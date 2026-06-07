@@ -162,3 +162,38 @@ public sealed record UpdateShiftRequest(
     TimeOnly StartTime,
     TimeOnly EndTime,
     string? Note);
+
+public sealed record AvailabilitySlotDto(
+    Guid StaffUserId,
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public sealed record SetAvailabilityRequest(IReadOnlyCollection<AvailabilitySlotItem> Slots);
+
+public sealed record AvailabilitySlotItem(
+    DayOfWeek DayOfWeek,
+    TimeOnly StartTime,
+    TimeOnly EndTime);
+
+public enum LeaveStatus
+{
+    Pending,
+    Approved,
+    Denied
+}
+
+public sealed record LeaveRequestDto(
+    Guid Id,
+    Guid StaffUserId,
+    DateOnly FromDate,
+    DateOnly ToDate,
+    string? Reason,
+    LeaveStatus Status,
+    DateTime CreatedAtUtc,
+    DateTime? DecidedAtUtc);
+
+public sealed record CreateLeaveRequest(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    string? Reason);
