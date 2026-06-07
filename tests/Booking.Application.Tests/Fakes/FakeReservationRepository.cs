@@ -29,6 +29,21 @@ public sealed class FakeReservationRepository : IReservationRepository
         return Task.FromResult<IReadOnlyCollection<Reservation>>(reservations);
     }
 
+    public Task<IReadOnlyCollection<Reservation>> GetByRestaurantAndDateRangeAsync(
+        Guid restaurantId,
+        DateTime fromInclusive,
+        DateTime toExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        var reservations = Reservations
+            .Where(reservation => reservation.RestaurantId == restaurantId
+                && reservation.ReservationDateTime >= fromInclusive
+                && reservation.ReservationDateTime < toExclusive)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyCollection<Reservation>>(reservations);
+    }
+
     public Task UpdateAsync(Reservation reservation, CancellationToken cancellationToken = default)
     {
         return Task.CompletedTask;

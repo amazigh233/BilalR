@@ -1,0 +1,235 @@
+@page "/admin/analytics"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject AnalyticsApiClient AnalyticsApi
+
+<PageTitle>Inzichten</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Inzichten</h1>
+        <p class="text-muted mb-0">Reserveringen, no-shows en drukke tijden voor je restaurant.</p>
+    </div>
+</section>
+
+<div class="analytics-filters">
+    <div class="form-field">
+        <label for="from-date">Van</label>
+        <input id="from-date" type="date" class="form-control"
+               value="@_from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+               @onchange="OnFromChanged" />
+    </div>
+    <div class="form-field">
+        <label for="to-date">Tot en met</label>
+        <input id="to-date" type="date" class="form-control"
+               value="@_to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+               @onchange="OnToChanged" />
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Inzichten laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else if (_analytics is not null)
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-label">Reserveringen</span>
+            <strong>@_analytics.TotalReservations</strong>
+            <span class="text-muted small">@_analytics.NewCount nieuw · @_analytics.ConfirmedCount bevestigd</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">No-shows</span>
+            <strong>@_analytics.NoShowCount</strong>
+            <span class="text-muted small">@FormatPercent(_analytics.NoShowRate) van totaal</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Gasten</span>
+            <strong>@_analytics.TotalGuests</strong>
+            <span class="text-muted small">gem. @_analytics.AveragePartySize.ToString("0.0", CultureInfo.InvariantCulture) per reservering</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-label">Geannuleerd</span>
+            <strong>@_analytics.CancelledCount</strong>
+            <span class="text-muted small">in gekozen periode</span>
+        </div>
+    </div>
+
+    @if (_analytics.TotalReservations == 0)
+    {
+        <section class="content-section">
+            <p class="empty-state"><strong>Geen reserveringen in deze periode</strong>Kies een andere periode om inzichten te zien.</p>
+        </section>
+    }
+    else
+    {
+        <section class="content-section">
+            <div class="section-heading">
+                <h2>Drukte per weekdag</h2>
+            </div>
+            <div class="bar-chart">
+                @{
+                    var maxWeekday = _analytics.PerWeekday.Count == 0 ? 0 : _analytics.PerWeekday.Max(item => item.Count);
+                }
+                @foreach (var item in _analytics.PerWeekday)
+                {
+                    <div class="bar-row">
+                        <span class="bar-label">@WeekdayName(item.DayOfWeek)</span>
+                        <div class="bar-track"><div class="bar-fill" style="width:@BarWidth(item.Count, maxWeekday)"></div></div>
+                        <span class="bar-value">@item.Count</span>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-heading">
+                <h2>Drukke tijden (per uur)</h2>
+            </div>
+            @{
+                var hours = _analytics.PerHour.Where(item => item.Count > 0).ToList();
+                var maxHour = hours.Count == 0 ? 0 : hours.Max(item => item.Count);
+            }
+            @if (hours.Count == 0)
+            {
+                <p class="empty-state"><strong>Geen tijdsgegevens</strong>Er zijn nog geen reserveringen met een tijdstip in deze periode.</p>
+            }
+            else
+            {
+                <div class="bar-chart">
+                    @foreach (var item in hours)
+                    {
+                        <div class="bar-row">
+                            <span class="bar-label">@item.Hour.ToString("00"):00</span>
+                            <div class="bar-track"><div class="bar-fill" style="width:@BarWidth(item.Count, maxHour)"></div></div>
+                            <span class="bar-value">@item.Count</span>
+                        </div>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="content-section">
+            <div class="section-heading">
+                <h2>Reserveringen per dag</h2>
+            </div>
+            <div class="bar-chart">
+                @{
+                    var maxDay = _analytics.PerDay.Count == 0 ? 0 : _analytics.PerDay.Max(item => item.Count);
+                }
+                @foreach (var item in _analytics.PerDay)
+                {
+                    <div class="bar-row">
+                        <span class="bar-label">@item.Date.ToString("dd-MM", CultureInfo.InvariantCulture)</span>
+                        <div class="bar-track"><div class="bar-fill" style="width:@BarWidth(item.Count, maxDay)"></div></div>
+                        <span class="bar-value">@item.Count</span>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private DateOnly _from = DateOnly.FromDateTime(DateTime.Now).AddDays(-29);
+    private DateOnly _to = DateOnly.FromDateTime(DateTime.Now);
+    private AnalyticsDto? _analytics;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        if (_to < _from)
+        {
+            _errorMessage = "De einddatum mag niet voor de begindatum liggen.";
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            _analytics = await AnalyticsApi.GetAsync(_from, _to);
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnFromChanged(ChangeEventArgs eventArgs)
+    {
+        if (TryParseDate(eventArgs.Value, out var date))
+        {
+            _from = date;
+            await LoadAsync();
+        }
+    }
+
+    private async Task OnToChanged(ChangeEventArgs eventArgs)
+    {
+        if (TryParseDate(eventArgs.Value, out var date))
+        {
+            _to = date;
+            await LoadAsync();
+        }
+    }
+
+    private static bool TryParseDate(object? value, out DateOnly date)
+    {
+        return DateOnly.TryParse(
+            value?.ToString(),
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out date);
+    }
+
+    private static string BarWidth(int count, int max)
+    {
+        if (max <= 0)
+        {
+            return "0%";
+        }
+
+        var percent = (int)Math.Round((double)count / max * 100);
+        return $"{percent}%";
+    }
+
+    private static string FormatPercent(double rate)
+    {
+        return (rate * 100).ToString("0.#", CultureInfo.InvariantCulture) + "%";
+    }
+
+    private static string WeekdayName(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Maandag",
+            DayOfWeek.Tuesday => "Dinsdag",
+            DayOfWeek.Wednesday => "Woensdag",
+            DayOfWeek.Thursday => "Donderdag",
+            DayOfWeek.Friday => "Vrijdag",
+            DayOfWeek.Saturday => "Zaterdag",
+            DayOfWeek.Sunday => "Zondag",
+            _ => dayOfWeek.ToString()
+        };
+    }
+}

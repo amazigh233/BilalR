@@ -12,5 +12,11 @@ public interface IReservationRepository
         Guid restaurantId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<Reservation>> GetByRestaurantAndDateRangeAsync(
+        Guid restaurantId,
+        DateTime fromInclusive,
+        DateTime toExclusive,
+        CancellationToken cancellationToken = default);
+
     Task UpdateAsync(Reservation reservation, CancellationToken cancellationToken = default);
 }

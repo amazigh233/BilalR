@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
 using Booking.Api.Contracts.Common;
 using Booking.Application.Abstractions;
+using Booking.Application.Analytics;
 using Booking.Application.Availability;
 using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
@@ -105,6 +106,7 @@ builder.Services.AddScoped<GetReservationsUseCase>();
 builder.Services.AddScoped<GetReservationUseCase>();
 builder.Services.AddScoped<ChangeReservationStatusUseCase>();
 builder.Services.AddScoped<ChangeRestaurantReservationStatusUseCase>();
+builder.Services.AddScoped<GetReservationAnalyticsUseCase>();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services

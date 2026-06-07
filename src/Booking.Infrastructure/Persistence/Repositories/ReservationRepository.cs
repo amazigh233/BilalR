@@ -30,6 +30,20 @@ public sealed class ReservationRepository(BookingDbContext dbContext) : IReserva
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyCollection<Reservation>> GetByRestaurantAndDateRangeAsync(
+        Guid restaurantId,
+        DateTime fromInclusive,
+        DateTime toExclusive,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Reservations
+            .Where(reservation => reservation.RestaurantId == restaurantId
+                && reservation.ReservationDateTime >= fromInclusive
+                && reservation.ReservationDateTime < toExclusive)
+            .OrderBy(reservation => reservation.ReservationDateTime)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task UpdateAsync(Reservation reservation, CancellationToken cancellationToken = default)
     {
         dbContext.Reservations.Update(reservation);

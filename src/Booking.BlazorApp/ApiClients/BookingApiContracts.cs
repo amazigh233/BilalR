@@ -118,3 +118,24 @@ public sealed record CreateReservationRequest(
     string? Note);
 
 public sealed record ChangeReservationStatusRequest(ReservationStatus Status);
+
+public sealed record AnalyticsDto(
+    DateOnly FromDate,
+    DateOnly ToDate,
+    int TotalReservations,
+    int NewCount,
+    int ConfirmedCount,
+    int CancelledCount,
+    int NoShowCount,
+    double NoShowRate,
+    int TotalGuests,
+    double AveragePartySize,
+    IReadOnlyList<DailyCountDto> PerDay,
+    IReadOnlyList<WeekdayCountDto> PerWeekday,
+    IReadOnlyList<HourlyCountDto> PerHour);
+
+public sealed record DailyCountDto(DateOnly Date, int Count);
+
+public sealed record WeekdayCountDto(DayOfWeek DayOfWeek, int Count);
+
+public sealed record HourlyCountDto(int Hour, int Count);

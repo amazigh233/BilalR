@@ -43,6 +43,8 @@ builder.Services.AddHttpClient<OpeningHoursApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<AvailabilityApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<AnalyticsApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
 
 var app = builder.Build();
 
