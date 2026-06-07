@@ -9,6 +9,7 @@ using Booking.Api.Contracts.Common;
 using Booking.Application.Abstractions;
 using Booking.Application.Analytics;
 using Booking.Application.Availability;
+using Booking.Application.Delivery;
 using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
 using Booking.Application.Restaurants;
@@ -120,6 +121,12 @@ builder.Services.AddScoped<RequestLeaveUseCase>();
 builder.Services.AddScoped<GetStaffLeaveUseCase>();
 builder.Services.AddScoped<GetRestaurantLeaveUseCase>();
 builder.Services.AddScoped<DecideLeaveUseCase>();
+builder.Services.AddScoped<IngestDeliveryOrderUseCase>();
+builder.Services.AddScoped<GetDeliveryOrdersUseCase>();
+builder.Services.AddScoped<ResolveDeliveryIntegrationUseCase>();
+builder.Services.AddScoped<GetDeliveryIntegrationsUseCase>();
+builder.Services.AddScoped<ConnectDeliveryProviderUseCase>();
+builder.Services.AddScoped<SetDeliveryProviderEnabledUseCase>();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services

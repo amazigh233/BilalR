@@ -1,5 +1,6 @@
 using Booking.Application.Abstractions;
 using Booking.Domain.Customers;
+using Booking.Domain.Delivery;
 using Booking.Domain.Notifications;
 using Booking.Domain.Reservations;
 using Booking.Domain.Restaurants;
@@ -39,6 +40,10 @@ public sealed class BookingDbContext : IdentityDbContext<ApplicationUser, Identi
 
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
+    public DbSet<DeliveryOrder> DeliveryOrders => Set<DeliveryOrder>();
+
+    public DbSet<DeliveryIntegration> DeliveryIntegrations => Set<DeliveryIntegration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -60,6 +65,10 @@ public sealed class BookingDbContext : IdentityDbContext<ApplicationUser, Identi
             .HasQueryFilter(availability => availability.RestaurantId == CurrentTenantId);
         modelBuilder.Entity<LeaveRequest>()
             .HasQueryFilter(leaveRequest => leaveRequest.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<DeliveryOrder>()
+            .HasQueryFilter(order => order.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<DeliveryIntegration>()
+            .HasQueryFilter(integration => integration.RestaurantId == CurrentTenantId);
     }
 
     private Guid? CurrentTenantId => _tenantProvider?.CurrentRestaurantId;

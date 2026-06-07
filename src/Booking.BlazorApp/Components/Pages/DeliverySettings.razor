@@ -1,0 +1,160 @@
+@page "/admin/bezorging"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject DeliveryApiClient DeliveryApi
+
+<PageTitle>Bezorgkoppelingen</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Bezorgkoppelingen</h1>
+        <p class="text-muted mb-0">Koppel Thuisbezorgd en Uber Eats zodat hun orders in je dashboard verschijnen.</p>
+    </div>
+</section>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_justConnected is not null)
+{
+    <div class="alert alert-success">
+        <strong>@ProviderLabel(_justConnected.Provider) gekoppeld.</strong>
+        Bewaar onderstaand secret nu — het wordt maar één keer getoond.
+        <div class="secret-box">
+            <div><span class="secret-label">Webhook-URL</span><code>@_justConnected.WebhookUrl</code></div>
+            <div><span class="secret-label">Secret (header <code>X-Webhook-Secret</code>)</span><code>@_justConnected.Secret</code></div>
+        </div>
+    </div>
+}
+
+@if (_isLoading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else
+{
+    <section class="content-section">
+        <div class="list-stack">
+            @foreach (var integration in _integrations)
+            {
+                <div class="list-row">
+                    <div>
+                        <strong>@ProviderLabel(integration.Provider)</strong>
+                        <div class="text-muted small">
+                            @if (!integration.Connected)
+                            {
+                                <span>Nog niet gekoppeld</span>
+                            }
+                            else if (integration.Enabled)
+                            {
+                                <span class="leave-badge leave-badge-approved">Actief</span>
+                            }
+                            else
+                            {
+                                <span class="leave-badge leave-badge-denied">Uitgeschakeld</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-primary btn-sm" @onclick="() => ConnectAsync(integration.Provider)"
+                                disabled="@_busy">
+                            @(integration.Connected ? "Nieuw secret" : "Koppelen")
+                        </button>
+                        @if (integration.Connected && integration.Enabled)
+                        {
+                            <button class="btn btn-outline-secondary btn-sm"
+                                    @onclick="() => DisableAsync(integration.Provider)" disabled="@_busy">
+                                Uitschakelen
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        <p class="text-muted small mt-3">
+            Geef de webhook-URL en het secret door aan het platform (of test met <code>curl</code>).
+            Een echte live-koppeling vereist een partner-account bij het platform.
+        </p>
+    </section>
+}
+
+@code {
+    private List<DeliveryIntegrationDto> _integrations = [];
+    private ConnectDeliveryDto? _justConnected;
+    private bool _isLoading = true;
+    private bool _busy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _integrations = (await DeliveryApi.GetIntegrationsAsync()).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ConnectAsync(DeliveryProvider provider)
+    {
+        _errorMessage = null;
+        _busy = true;
+        try
+        {
+            _justConnected = await DeliveryApi.ConnectAsync(provider);
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DisableAsync(DeliveryProvider provider)
+    {
+        _errorMessage = null;
+        _busy = true;
+        try
+        {
+            await DeliveryApi.DisableAsync(provider);
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string ProviderLabel(DeliveryProvider provider)
+    {
+        return provider switch
+        {
+            DeliveryProvider.Thuisbezorgd => "Thuisbezorgd",
+            DeliveryProvider.UberEats => "Uber Eats",
+            _ => provider.ToString()
+        };
+    }
+}

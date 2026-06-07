@@ -197,3 +197,38 @@ public sealed record CreateLeaveRequest(
     DateOnly FromDate,
     DateOnly ToDate,
     string? Reason);
+
+public enum DeliveryProvider
+{
+    Thuisbezorgd,
+    UberEats
+}
+
+public sealed record DeliveryOrderDto(
+    Guid Id,
+    DeliveryProvider Provider,
+    string ExternalOrderId,
+    string CustomerName,
+    string? CustomerPhone,
+    string? DeliveryAddress,
+    string? Note,
+    string Status,
+    decimal TotalAmount,
+    string Currency,
+    DateTime PlacedAtUtc,
+    DateTime CreatedAtUtc,
+    IReadOnlyList<DeliveryOrderLineDto> Items);
+
+public sealed record DeliveryOrderLineDto(string Name, int Quantity, decimal UnitPrice);
+
+public sealed record DeliveryIntegrationDto(
+    DeliveryProvider Provider,
+    bool Connected,
+    bool Enabled,
+    DateTime? CreatedAtUtc,
+    DateTime? LastRotatedAtUtc);
+
+public sealed record ConnectDeliveryDto(
+    DeliveryProvider Provider,
+    string WebhookUrl,
+    string Secret);

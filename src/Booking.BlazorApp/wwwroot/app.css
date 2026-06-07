@@ -745,6 +745,80 @@ h1:focus {
     color: #9b2530;
 }
 
+.provider-badge {
+    align-self: center;
+    white-space: nowrap;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-md);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.provider-thuisbezorgd {
+    background: #ffe6d6;
+    color: #b24a00;
+}
+
+.provider-ubereats {
+    background: #dcf2dd;
+    color: #15662b;
+}
+
+.delivery-order {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.delivery-order-main {
+    display: grid;
+    gap: var(--space-1);
+}
+
+.delivery-order-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.delivery-order-items {
+    margin: var(--space-1) 0 0;
+    padding-left: var(--space-4);
+    font-size: 0.9rem;
+}
+
+.delivery-order-side {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
+    white-space: nowrap;
+}
+
+.secret-box {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.secret-box code {
+    display: block;
+    overflow-wrap: anywhere;
+    padding: var(--space-1) var(--space-2);
+    background: var(--color-surface-subtle);
+    border-radius: var(--radius-sm);
+}
+
+.secret-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
 .public-booking-page {
     max-width: 980px;
     margin: 0 auto;
