@@ -1,0 +1,132 @@
+@page "/mijn-rooster"
+@attribute [Authorize(Roles = "Owner,Staff")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject ShiftApiClient ShiftApi
+
+<PageTitle>Mijn rooster</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Rooster</p>
+        <h1>Mijn rooster</h1>
+        <p class="text-muted mb-0">Jouw ingeplande diensten.</p>
+    </div>
+    <div class="week-nav">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="PreviousWeek">&laquo; Vorige</button>
+        <span class="week-label">@_weekStart.ToString("dd-MM") - @_weekStart.AddDays(6).ToString("dd-MM-yyyy")</span>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="NextWeek">Volgende &raquo;</button>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Rooster laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else
+{
+    <section class="content-section">
+        @{
+            var shiftsByDay = WeekDays
+                .Select(day => (Day: day, Shifts: _shifts
+                    .Where(shift => shift.ShiftDate == day)
+                    .OrderBy(shift => shift.StartTime)
+                    .ToList()))
+                .ToList();
+        }
+
+        @if (_shifts.Count == 0)
+        {
+            <p class="empty-state"><strong>Geen diensten deze week</strong>Er zijn nog geen diensten voor je ingepland.</p>
+        }
+        else
+        {
+            <div class="list-stack">
+                @foreach (var entry in shiftsByDay.Where(item => item.Shifts.Count > 0))
+                {
+                    <div class="list-row">
+                        <div>
+                            <strong>@DutchDay(entry.Day.DayOfWeek) @entry.Day.ToString("dd-MM")</strong>
+                            <div class="text-muted small">
+                                @string.Join(" · ", entry.Shifts.Select(shift =>
+                                    $"{shift.StartTime:HH\\:mm}-{shift.EndTime:HH\\:mm}" +
+                                    (string.IsNullOrWhiteSpace(shift.Note) ? string.Empty : $" ({shift.Note})")))
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+}
+
+@code {
+    private List<ShiftDto> _shifts = [];
+    private DateOnly _weekStart = CurrentWeekMonday();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    private IEnumerable<DateOnly> WeekDays => Enumerable.Range(0, 7).Select(offset => _weekStart.AddDays(offset));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _shifts = (await ShiftApi.GetMineAsync(_weekStart, _weekStart.AddDays(6))).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PreviousWeek()
+    {
+        _weekStart = _weekStart.AddDays(-7);
+        await LoadAsync();
+    }
+
+    private async Task NextWeek()
+    {
+        _weekStart = _weekStart.AddDays(7);
+        await LoadAsync();
+    }
+
+    private static DateOnly CurrentWeekMonday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var diff = ((int)today.DayOfWeek + 6) % 7;
+        return today.AddDays(-diff);
+    }
+
+    private static string DutchDay(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Maandag",
+            DayOfWeek.Tuesday => "Dinsdag",
+            DayOfWeek.Wednesday => "Woensdag",
+            DayOfWeek.Thursday => "Donderdag",
+            DayOfWeek.Friday => "Vrijdag",
+            DayOfWeek.Saturday => "Zaterdag",
+            DayOfWeek.Sunday => "Zondag",
+            _ => dayOfWeek.ToString()
+        };
+    }
+}

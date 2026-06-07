@@ -67,6 +67,19 @@ public abstract class BookingApiClientBase(
         return JsonContent.Create(request, options: JsonOptions);
     }
 
+    protected async Task EnsureSuccessAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var message = await ReadErrorMessageAsync(response, cancellationToken);
+        throw new ApiClientException(message, response.StatusCode);
+    }
+
     private async Task ApplyBearerTokenAsync()
     {
         if (authenticationStateProvider is null)

@@ -45,6 +45,8 @@ builder.Services.AddHttpClient<AvailabilityApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<AnalyticsApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<ShiftApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
 
 var app = builder.Build();
 

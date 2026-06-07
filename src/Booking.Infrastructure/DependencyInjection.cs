@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
         services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+        services.AddScoped<IShiftRepository, ShiftRepository>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
 
         var emailOptions = new EmailOptions

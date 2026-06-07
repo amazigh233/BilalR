@@ -1,0 +1,311 @@
+@page "/admin/schedule"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject ShiftApiClient ShiftApi
+@inject StaffApiClient StaffApi
+
+<PageTitle>Rooster</PageTitle>
+
+<section class="page-header">
+    <div>
+        <p class="eyebrow">Beheer</p>
+        <h1>Rooster</h1>
+        <p class="text-muted mb-0">Plan diensten in per medewerker.</p>
+    </div>
+    <div class="week-nav">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="PreviousWeek">&laquo; Vorige</button>
+        <span class="week-label">@_weekStart.ToString("dd-MM") - @_weekStart.AddDays(6).ToString("dd-MM-yyyy")</span>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="NextWeek">Volgende &raquo;</button>
+    </div>
+</section>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Rooster laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else
+{
+    @if (_staff.Count == 0)
+    {
+        <p class="empty-state"><strong>Nog geen medewerkers</strong>Maak eerst medewerkers aan onder Medewerkers.</p>
+    }
+    else
+    {
+        <section class="content-section schedule-section">
+            <div class="schedule-grid">
+                <div class="schedule-cell schedule-head">Medewerker</div>
+                @foreach (var day in WeekDays)
+                {
+                    <div class="schedule-cell schedule-head">@DutchDay(day.DayOfWeek)<br /><span class="text-muted small">@day.ToString("dd-MM")</span></div>
+                }
+
+                @foreach (var member in _staff)
+                {
+                    <div class="schedule-cell schedule-staff">@member.Name</div>
+                    @foreach (var day in WeekDays)
+                    {
+                        <div class="schedule-cell">
+                            @foreach (var shift in ShiftsFor(member.UserId, day))
+                            {
+                                <div class="shift-chip" @onclick="() => StartEdit(shift)">
+                                    <span>@shift.StartTime.ToString("HH:mm")-@shift.EndTime.ToString("HH:mm")</span>
+                                    <button class="shift-remove" @onclick="() => DeleteAsync(shift.Id)" @onclick:stopPropagation="true" title="Verwijderen">&times;</button>
+                                </div>
+                            }
+                            <button class="shift-add" @onclick="() => StartAdd(member.UserId, day)">+ dienst</button>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+
+        <section class="content-section">
+            <div class="section-heading">
+                <h2>@(_editingShiftId is null ? "Nieuwe dienst" : "Dienst wijzigen")</h2>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_formError))
+            {
+                <div class="alert alert-danger">@_formError</div>
+            }
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Medewerker</label>
+                    <select class="form-control" value="@_formStaffId" @onchange="OnStaffChanged">
+                        <option value="">Kies...</option>
+                        @foreach (var member in _staff)
+                        {
+                            <option value="@member.UserId">@member.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Datum</label>
+                    <input type="date" class="form-control"
+                           value="@_formDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
+                           @onchange="OnDateChanged" />
+                </div>
+                <div class="form-field">
+                    <label>Start</label>
+                    <input type="time" class="form-control" value="@_formStart"
+                           @onchange="e => _formStart = e.Value?.ToString() ?? string.Empty" />
+                </div>
+                <div class="form-field">
+                    <label>Einde</label>
+                    <input type="time" class="form-control" value="@_formEnd"
+                           @onchange="e => _formEnd = e.Value?.ToString() ?? string.Empty" />
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Notitie (optioneel)</label>
+                <input class="form-control" value="@_formNote"
+                       @onchange="e => _formNote = e.Value?.ToString()" />
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_isSaving">
+                    @(_isSaving ? "Opslaan..." : (_editingShiftId is null ? "Dienst toevoegen" : "Wijzigen opslaan"))
+                </button>
+                @if (_editingShiftId is not null)
+                {
+                    <button class="btn btn-outline-secondary" @onclick="ResetForm">Annuleren</button>
+                }
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private List<StaffUserDto> _staff = [];
+    private List<ShiftDto> _shifts = [];
+    private DateOnly _weekStart = CurrentWeekMonday();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    private Guid? _formStaffId;
+    private DateOnly _formDate = DateOnly.FromDateTime(DateTime.Now);
+    private string _formStart = "09:00";
+    private string _formEnd = "17:00";
+    private string? _formNote;
+    private Guid? _editingShiftId;
+    private string? _formError;
+    private bool _isSaving;
+
+    private IEnumerable<DateOnly> WeekDays => Enumerable.Range(0, 7).Select(offset => _weekStart.AddDays(offset));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _staff = (await StaffApi.GetAllAsync()).ToList();
+            _shifts = (await ShiftApi.GetForRestaurantAsync(_weekStart, _weekStart.AddDays(6))).ToList();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task PreviousWeek()
+    {
+        _weekStart = _weekStart.AddDays(-7);
+        await LoadAsync();
+    }
+
+    private async Task NextWeek()
+    {
+        _weekStart = _weekStart.AddDays(7);
+        await LoadAsync();
+    }
+
+    private IEnumerable<ShiftDto> ShiftsFor(Guid staffUserId, DateOnly day)
+    {
+        return _shifts
+            .Where(shift => shift.StaffUserId == staffUserId && shift.ShiftDate == day)
+            .OrderBy(shift => shift.StartTime);
+    }
+
+    private void StartAdd(Guid staffUserId, DateOnly day)
+    {
+        _editingShiftId = null;
+        _formStaffId = staffUserId;
+        _formDate = day;
+        _formStart = "09:00";
+        _formEnd = "17:00";
+        _formNote = null;
+        _formError = null;
+    }
+
+    private void StartEdit(ShiftDto shift)
+    {
+        _editingShiftId = shift.Id;
+        _formStaffId = shift.StaffUserId;
+        _formDate = shift.ShiftDate;
+        _formStart = shift.StartTime.ToString("HH:mm");
+        _formEnd = shift.EndTime.ToString("HH:mm");
+        _formNote = shift.Note;
+        _formError = null;
+    }
+
+    private void ResetForm()
+    {
+        _editingShiftId = null;
+        _formError = null;
+    }
+
+    private void OnStaffChanged(ChangeEventArgs eventArgs)
+    {
+        _formStaffId = Guid.TryParse(eventArgs.Value?.ToString(), out var id) ? id : null;
+    }
+
+    private void OnDateChanged(ChangeEventArgs eventArgs)
+    {
+        if (DateOnly.TryParse(eventArgs.Value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+        {
+            _formDate = date;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _formError = null;
+
+        if (_formStaffId is null || _formStaffId == Guid.Empty)
+        {
+            _formError = "Kies een medewerker.";
+            return;
+        }
+
+        if (!TimeOnly.TryParseExact(_formStart, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start) ||
+            !TimeOnly.TryParseExact(_formEnd, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end))
+        {
+            _formError = "Controleer de start- en eindtijd.";
+            return;
+        }
+
+        if (end <= start)
+        {
+            _formError = "Eindtijd moet na de starttijd liggen.";
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            if (_editingShiftId is null)
+            {
+                await ShiftApi.CreateAsync(new CreateShiftRequest(_formStaffId.Value, _formDate, start, end, _formNote));
+            }
+            else
+            {
+                await ShiftApi.UpdateAsync(
+                    _editingShiftId.Value,
+                    new UpdateShiftRequest(_formStaffId.Value, _formDate, start, end, _formNote));
+            }
+
+            _editingShiftId = null;
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _formError = exception.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteAsync(Guid shiftId)
+    {
+        try
+        {
+            await ShiftApi.DeleteAsync(shiftId);
+            await LoadAsync();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+    }
+
+    private static DateOnly CurrentWeekMonday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var diff = ((int)today.DayOfWeek + 6) % 7;
+        return today.AddDays(-diff);
+    }
+
+    private static string DutchDay(DayOfWeek dayOfWeek)
+    {
+        return dayOfWeek switch
+        {
+            DayOfWeek.Monday => "Ma",
+            DayOfWeek.Tuesday => "Di",
+            DayOfWeek.Wednesday => "Wo",
+            DayOfWeek.Thursday => "Do",
+            DayOfWeek.Friday => "Vr",
+            DayOfWeek.Saturday => "Za",
+            DayOfWeek.Sunday => "Zo",
+            _ => dayOfWeek.ToString()
+        };
+    }
+}

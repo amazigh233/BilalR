@@ -12,6 +12,7 @@ using Booking.Application.Availability;
 using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
 using Booking.Application.Restaurants;
+using Booking.Application.Scheduling;
 using Booking.Infrastructure;
 using Booking.Infrastructure.Identity;
 using Booking.Infrastructure.Persistence;
@@ -107,6 +108,11 @@ builder.Services.AddScoped<GetReservationUseCase>();
 builder.Services.AddScoped<ChangeReservationStatusUseCase>();
 builder.Services.AddScoped<ChangeRestaurantReservationStatusUseCase>();
 builder.Services.AddScoped<GetReservationAnalyticsUseCase>();
+builder.Services.AddScoped<CreateShiftUseCase>();
+builder.Services.AddScoped<UpdateShiftUseCase>();
+builder.Services.AddScoped<DeleteShiftUseCase>();
+builder.Services.AddScoped<GetShiftsUseCase>();
+builder.Services.AddScoped<GetStaffShiftsUseCase>();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services

@@ -139,3 +139,26 @@ public sealed record DailyCountDto(DateOnly Date, int Count);
 public sealed record WeekdayCountDto(DayOfWeek DayOfWeek, int Count);
 
 public sealed record HourlyCountDto(int Hour, int Count);
+
+public sealed record ShiftDto(
+    Guid Id,
+    Guid RestaurantId,
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
+
+public sealed record CreateShiftRequest(
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
+
+public sealed record UpdateShiftRequest(
+    Guid StaffUserId,
+    DateOnly ShiftDate,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string? Note);
