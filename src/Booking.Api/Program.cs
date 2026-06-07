@@ -1,8 +1,12 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Booking.Api.Authentication;
 using Booking.Api.Identity;
+using Booking.Api.Tenancy;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.RateLimiting;
 using Booking.Api.Contracts.Common;
+using Booking.Application.Abstractions;
 using Booking.Application.Availability;
 using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
@@ -66,8 +70,31 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ITenantProvider, HttpContextTenantProvider>();
+
+// Rate limiting for anonymous/public endpoints, partitioned per client IP.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    var permitLimit = builder.Configuration.GetValue<int?>("RateLimiting:Public:PermitLimit") ?? 20;
+    var windowSeconds = builder.Configuration.GetValue<int?>("RateLimiting:Public:WindowSeconds") ?? 60;
+    var queueLimit = builder.Configuration.GetValue<int?>("RateLimiting:Public:QueueLimit") ?? 0;
+
+    options.AddPolicy("public", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueLimit = queueLimit,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+});
+
 builder.Services.AddScoped<CreateRestaurantUseCase>();
-builder.Services.AddScoped<GetRestaurantsUseCase>();
 builder.Services.AddScoped<GetRestaurantUseCase>();
 builder.Services.AddScoped<UpdateRestaurantUseCase>();
 builder.Services.AddScoped<SetOpeningHoursUseCase>();
@@ -149,6 +176,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseRateLimiter();
 
 app.MapControllers();
 

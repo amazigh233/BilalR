@@ -69,6 +69,36 @@ public sealed class CreateReservationUseCaseTests
     }
 
     [Fact]
+    public async Task CreateReservation_Should_SendCustomerConfirmation_AndLogIt()
+    {
+        var reservationRepository = new FakeReservationRepository();
+        var restaurantRepository = await CreateRestaurantRepositoryAsync(DayOfWeek.Thursday);
+        var restaurant = restaurantRepository.Restaurants.Single();
+        var emailSender = new FakeEmailSender();
+        var notificationLogRepository = new FakeNotificationLogRepository();
+        var useCase = CreateUseCase(
+            restaurantRepository,
+            reservationRepository,
+            emailSender,
+            notificationLogRepository);
+
+        await useCase.ExecuteAsync(new CreateReservationRequest(
+            restaurant.Id,
+            FixedNow.AddHours(7),
+            2,
+            new CustomerRequest("Test Customer", "test@example.com", null),
+            null));
+
+        // Restaurant has no e-mail, so only the customer confirmation is sent.
+        var sent = Assert.Single(emailSender.SentMessages);
+        Assert.Equal("test@example.com", sent.To);
+
+        var log = Assert.Single(notificationLogRepository.Logs);
+        Assert.Equal("test@example.com", log.RecipientEmail);
+        Assert.NotNull(log.SentAtUtc);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RejectsReservationOutsideOpeningHours()
     {
         var restaurantRepository = new FakeRestaurantRepository();
@@ -89,6 +119,8 @@ public sealed class CreateReservationUseCaseTests
             restaurantRepository,
             reservationRepository,
             new AvailabilityService(restaurantRepository),
+            new FakeEmailSender(),
+            new FakeNotificationLogRepository(),
             new FixedTimeProvider(FixedNow));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -123,12 +155,16 @@ public sealed class CreateReservationUseCaseTests
 
     private static CreateReservationUseCase CreateUseCase(
         FakeRestaurantRepository restaurantRepository,
-        FakeReservationRepository reservationRepository)
+        FakeReservationRepository reservationRepository,
+        FakeEmailSender? emailSender = null,
+        FakeNotificationLogRepository? notificationLogRepository = null)
     {
         return new CreateReservationUseCase(
             restaurantRepository,
             reservationRepository,
             new AvailabilityService(restaurantRepository),
+            emailSender ?? new FakeEmailSender(),
+            notificationLogRepository ?? new FakeNotificationLogRepository(),
             new FixedTimeProvider(FixedNow));
     }
 

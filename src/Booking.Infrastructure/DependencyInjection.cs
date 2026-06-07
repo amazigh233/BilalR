@@ -1,5 +1,6 @@
 using Booking.Application.Abstractions;
 using Booking.Application.Availability;
+using Booking.Infrastructure.Notifications;
 using Booking.Infrastructure.Persistence;
 using Booking.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,30 @@ public static class DependencyInjection
 
         services.AddScoped<IRestaurantRepository, RestaurantRepository>();
         services.AddScoped<IReservationRepository, ReservationRepository>();
+        services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
+
+        var emailOptions = new EmailOptions
+        {
+            SmtpHost = configuration["Email:SmtpHost"],
+            SmtpPort = int.TryParse(configuration["Email:SmtpPort"], out var smtpPort) ? smtpPort : 587,
+            SmtpUsername = configuration["Email:SmtpUsername"],
+            SmtpPassword = configuration["Email:SmtpPassword"],
+            UseSsl = !bool.TryParse(configuration["Email:UseSsl"], out var useSsl) || useSsl,
+            FromAddress = configuration["Email:FromAddress"] ?? "no-reply@zambiq.local",
+            FromName = configuration["Email:FromName"] ?? "Zambiq"
+        };
+        services.AddSingleton(emailOptions);
+
+        // Real SMTP when configured; otherwise a logging-only fallback so dev/tests run without secrets.
+        if (string.IsNullOrWhiteSpace(emailOptions.SmtpHost))
+        {
+            services.AddScoped<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
 
         return services;
     }

@@ -2,6 +2,7 @@ using Booking.Api.Contracts.Restaurants;
 using Booking.Application.Restaurants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Booking.Api.Controllers;
 
@@ -69,6 +70,7 @@ public sealed class RestaurantsController(
 
     [HttpGet("{restaurantId}")]
     [AllowAnonymous]
+    [EnableRateLimiting("public")]
     [ProducesResponseType(typeof(RestaurantApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
