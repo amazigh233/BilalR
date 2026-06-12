@@ -33,6 +33,23 @@ public sealed class StaffApiClient(
         return await ReadResponseAsync<StaffUserDto>(response, cancellationToken);
     }
 
+    public async Task<StaffUserDto> UpdateAsync(
+        Guid userId,
+        UpdateStaffRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAsync(
+            token => HttpClient.SendAsync(
+                new HttpRequestMessage(HttpMethod.Patch, $"api/admin/staff/{userId}")
+                {
+                    Content = JsonContent.Create(request, options: JsonOptions)
+                },
+                token),
+            cancellationToken);
+
+        return await ReadResponseAsync<StaffUserDto>(response, cancellationToken);
+    }
+
     public async Task<StaffUserDto> DisableAsync(
         Guid userId,
         CancellationToken cancellationToken = default)

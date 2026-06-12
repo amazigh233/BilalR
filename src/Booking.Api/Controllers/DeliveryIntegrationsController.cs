@@ -10,7 +10,8 @@ namespace Booking.Api.Controllers;
 public sealed class DeliveryIntegrationsController(
     GetDeliveryIntegrationsUseCase getDeliveryIntegrationsUseCase,
     ConnectDeliveryProviderUseCase connectDeliveryProviderUseCase,
-    SetDeliveryProviderEnabledUseCase setDeliveryProviderEnabledUseCase) : ApiControllerBase
+    SetDeliveryProviderEnabledUseCase setDeliveryProviderEnabledUseCase,
+    IConfiguration configuration) : ApiControllerBase
 {
     [HttpGet]
     [Authorize(Policy = "RestaurantOwner")]
@@ -54,8 +55,14 @@ public sealed class DeliveryIntegrationsController(
 
         return Ok(new ConnectDeliveryApiResponse(
             result.Provider,
-            BuildWebhookUrl(deliveryProvider),
-            result.Secret));
+            BuildPublicUrl($"api/delivery/webhook/{deliveryProvider}"),
+            result.Secret,
+            deliveryProvider == DeliveryProvider.Thuisbezorgd
+                ? BuildPublicUrl("api/delivery/thuisbezorgd/jet-connect/orders")
+                : null,
+            deliveryProvider == DeliveryProvider.Thuisbezorgd
+                ? BuildPublicUrl("api/delivery/thuisbezorgd/t-connect/orders")
+                : null));
     }
 
     [HttpPost("{provider}/disable")]
@@ -91,9 +98,14 @@ public sealed class DeliveryIntegrationsController(
         }
     }
 
-    private string BuildWebhookUrl(DeliveryProvider provider)
+    private string BuildPublicUrl(string path)
     {
-        return $"{Request.Scheme}://{Request.Host}/api/delivery/webhook/{provider}";
+        var configuredBaseUrl = configuration["Delivery:PublicBaseUrl"];
+        var baseUrl = string.IsNullOrWhiteSpace(configuredBaseUrl)
+            ? $"{Request.Scheme}://{Request.Host}"
+            : configuredBaseUrl.TrimEnd('/');
+
+        return $"{baseUrl}/{path.TrimStart('/')}";
     }
 
     private static DeliveryIntegrationApiResponse ToApiResponse(DeliveryIntegrationResponse response)

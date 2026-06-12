@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Zambiq Booking
  * Description: Sluit de Zambiq-reserveringswidget in via een shortcode. WordPress is enkel een client van de centrale Zambiq-API.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Zambiq
  * License: GPL-2.0-or-later
  */
@@ -14,6 +14,24 @@ if (!defined('ABSPATH')) {
 const ZAMBIQ_BOOKING_OPTION_HOST = 'zambiq_widget_host';
 
 /**
+ * Keep only an HTTP(S) origin-like URL and remove the trailing slash.
+ */
+function zambiq_booking_sanitize_host($value)
+{
+    $url = esc_url_raw(trim((string) $value), array('http', 'https'));
+    if ($url === '') {
+        return '';
+    }
+
+    $parts = wp_parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return '';
+    }
+
+    return untrailingslashit($url);
+}
+
+/**
  * Register the single setting: the public Zambiq widget host (Blazor app origin).
  */
 function zambiq_booking_register_settings()
@@ -23,7 +41,7 @@ function zambiq_booking_register_settings()
         ZAMBIQ_BOOKING_OPTION_HOST,
         array(
             'type'              => 'string',
-            'sanitize_callback' => 'esc_url_raw',
+            'sanitize_callback' => 'zambiq_booking_sanitize_host',
             'default'           => '',
         )
     );
@@ -86,13 +104,14 @@ function zambiq_booking_render_settings_page()
         </form>
         <h2><?php echo esc_html__('Gebruik', 'zambiq-booking'); ?></h2>
         <p><?php echo esc_html__('Plaats deze shortcode op een pagina of bericht:', 'zambiq-booking'); ?></p>
-        <p><code>[zambiq_booking restaurant="JE-RESTAURANT-ID" height="720"]</code></p>
+        <p><code>[zambiq_booking restaurant="JE-RESTAURANT-ID"]</code></p>
+        <p><?php echo esc_html__('De widget past standaard automatisch zijn hoogte aan. Gebruik auto_resize="false" en height="760" alleen als je een vaste hoogte wilt.', 'zambiq-booking'); ?></p>
     </div>
     <?php
 }
 
 /**
- * Shortcode: [zambiq_booking restaurant="GUID" height="720"]
+ * Shortcode: [zambiq_booking restaurant="GUID"]
  * Renders the embed container and enqueues widget.js from the configured host.
  */
 function zambiq_booking_shortcode($atts)
@@ -101,16 +120,28 @@ function zambiq_booking_shortcode($atts)
         array(
             'restaurant' => '',
             'height'     => '720',
+            'auto_resize' => 'true',
+            'title'      => __('Reserveren', 'zambiq-booking'),
         ),
         $atts,
         'zambiq_booking'
     );
 
-    $host = trim((string) get_option(ZAMBIQ_BOOKING_OPTION_HOST, ''));
+    $host = zambiq_booking_sanitize_host(get_option(ZAMBIQ_BOOKING_OPTION_HOST, ''));
     $restaurant = trim((string) $atts['restaurant']);
     $height = (int) $atts['height'];
-    if ($height <= 0) {
+    if ($height < 320) {
         $height = 720;
+    }
+    $height = min($height, 5000);
+    $auto_resize = !in_array(
+        strtolower(trim((string) $atts['auto_resize'])),
+        array('false', '0', 'no', 'off'),
+        true
+    );
+    $title = trim((string) $atts['title']);
+    if ($title === '') {
+        $title = __('Reserveren', 'zambiq-booking');
     }
 
     if ($host === '') {
@@ -126,7 +157,7 @@ function zambiq_booking_shortcode($atts)
         'zambiq-widget',
         trailingslashit($host) . 'widget.js',
         array(),
-        '1.0.0',
+        '1.1.0',
         array(
             'in_footer' => true,
             'strategy'  => 'async',
@@ -134,9 +165,11 @@ function zambiq_booking_shortcode($atts)
     );
 
     return sprintf(
-        '<div data-zambiq-restaurant="%s" data-height="%d"></div>',
+        '<div class="zambiq-booking-widget" data-zambiq-restaurant="%s" data-height="%d" data-auto-resize="%s" data-title="%s"></div>',
         esc_attr($restaurant),
-        $height
+        $height,
+        $auto_resize ? 'true' : 'false',
+        esc_attr($title)
     );
 }
 add_shortcode('zambiq_booking', 'zambiq_booking_shortcode');

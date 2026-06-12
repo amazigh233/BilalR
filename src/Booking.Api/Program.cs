@@ -1,12 +1,17 @@
 using System.Text;
 using System.Threading.RateLimiting;
 using Booking.Api.Authentication;
+using Booking.Api.Accounting;
+using Booking.Api.GoogleBusiness;
 using Booking.Api.Identity;
 using Booking.Api.Tenancy;
+using Booking.Api.Delivery;
+using Booking.Api.WidgetAssets;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.RateLimiting;
 using Booking.Api.Contracts.Common;
 using Booking.Application.Abstractions;
+using Booking.Application.Accounting;
 using Booking.Application.Analytics;
 using Booking.Application.Availability;
 using Booking.Application.Delivery;
@@ -14,11 +19,15 @@ using Booking.Application.OpeningHours;
 using Booking.Application.Reservations;
 using Booking.Application.Restaurants;
 using Booking.Application.Scheduling;
+using Booking.Application.Tables;
+using Booking.Application.WidgetSettings;
 using Booking.Infrastructure;
 using Booking.Infrastructure.Identity;
 using Booking.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
@@ -36,6 +45,15 @@ var jwtOptions = JwtAuthenticationOptionsFactory.Create(
     jwtLoggerFactory.CreateLogger("JwtAuthentication"));
 
 builder.Services.AddSingleton(jwtOptions);
+
+var dataProtection = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("Zambiq.Booking.Api");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 builder.Services
     .AddControllers()
@@ -127,6 +145,39 @@ builder.Services.AddScoped<ResolveDeliveryIntegrationUseCase>();
 builder.Services.AddScoped<GetDeliveryIntegrationsUseCase>();
 builder.Services.AddScoped<ConnectDeliveryProviderUseCase>();
 builder.Services.AddScoped<SetDeliveryProviderEnabledUseCase>();
+builder.Services.AddScoped<DeliveryIngressService>();
+builder.Services.AddScoped<GetWidgetOriginsUseCase>();
+builder.Services.AddScoped<SetWidgetOriginsUseCase>();
+builder.Services.AddScoped<GetWidgetBrandingUseCase>();
+builder.Services.AddScoped<SetWidgetBrandingUseCase>();
+builder.Services.AddScoped<CreateTableUseCase>();
+builder.Services.AddScoped<GetTablesUseCase>();
+builder.Services.AddScoped<UpdateTableUseCase>();
+builder.Services.AddScoped<DeactivateTableUseCase>();
+builder.Services.AddScoped<ReactivateTableUseCase>();
+builder.Services.AddScoped<AssignTableUseCase>();
+builder.Services.AddScoped<UpdateTableLayoutUseCase>();
+builder.Services.AddScoped<AccountingUseCases>();
+builder.Services.AddScoped<AccountingCsvService>();
+builder.Services.AddScoped<AccountingReportService>();
+builder.Services.AddScoped<AccountingConnectorService>();
+builder.Services.AddSingleton<IAccountingAssetStorage, FileSystemAccountingAssetStorage>();
+builder.Services.AddHostedService<AccountingDailySyncService>();
+builder.Services.AddHttpClient("AccountingGoCardless", client =>
+    client.BaseAddress = new Uri("https://bankaccountdata.gocardless.com/"));
+builder.Services.AddHttpClient("AccountingMollie", client =>
+    client.BaseAddress = new Uri("https://api.mollie.com/"));
+builder.Services.AddHttpClient("AccountingMollieApi", client =>
+    client.BaseAddress = new Uri("https://api.mollie.com/"));
+builder.Services.AddSingleton<IWidgetLogoStorage, FileSystemWidgetLogoStorage>();
+builder.Services.AddScoped<GoogleBusinessService>();
+builder.Services.AddScoped<GoogleBusinessHoursSyncService>();
+builder.Services.AddHostedService<GoogleBusinessReviewSyncService>();
+builder.Services.AddHttpClient("GoogleOAuth");
+builder.Services.AddHttpClient("GoogleMyBusinessV4", client =>
+    client.BaseAddress = new Uri("https://mybusiness.googleapis.com/v4/"));
+builder.Services.AddHttpClient("GoogleAccountManagementV1", client =>
+    client.BaseAddress = new Uri("https://mybusinessaccountmanagement.googleapis.com/v1/"));
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services
@@ -173,6 +224,12 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+using (var migrationScope = app.Services.CreateScope())
+{
+    var dbContext = migrationScope.ServiceProvider.GetRequiredService<BookingDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 await app.Services.SeedDevelopmentIdentityAsync(
     app.Configuration,

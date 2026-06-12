@@ -1,0 +1,189 @@
+@page "/admin/boekhouding/importeren"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.WebUtilities
+@inject AccountingApiClient AccountingApi
+@inject NavigationManager Navigation
+
+<PageTitle>Boekhouding importeren</PageTitle>
+<PageHeader Eyebrow="Boekhouding" Title="Importeren en koppelen" Description="Haal brongegevens binnen. Nieuwe regels verschijnen altijd eerst in de controle-inbox." />
+
+@if (!string.IsNullOrWhiteSpace(_error)) { <div class="alert alert-danger">@_error</div> }
+@if (!string.IsNullOrWhiteSpace(_message)) { <div class="alert alert-success">@_message</div> }
+
+<SectionCard Title="CSV importeren" Subtitle="Gebruik een generieke bank- of kassauitvoer en koppel de kolomnamen.">
+    <div class="form-grid">
+        <div class="form-field">
+            <label>Opgeslagen profiel</label>
+            <select class="form-select" @onchange="ApplyProfile">
+                <option value="">Nieuwe mapping</option>
+                @foreach (var profile in _profiles) { <option value="@profile.Id">@profile.Name (@profile.ImportKind)</option> }
+            </select>
+        </div>
+        <div class="form-field"><label>Soort</label><InputSelect class="form-select" @bind-Value="_kind"><option value="@AccountingImportKind.Bank">Bank</option><option value="@AccountingImportKind.Pos">Kassa dagtotalen</option></InputSelect></div>
+        <div class="form-field"><label>Datumkolom</label><InputText class="form-control" @bind-Value="_dateColumn" /></div>
+        <div class="form-field"><label>Omschrijvingkolom</label><InputText class="form-control" @bind-Value="_descriptionColumn" /></div>
+        <div class="form-field"><label>Referentiekolom</label><InputText class="form-control" @bind-Value="_referenceColumn" /></div>
+        @if (_kind == AccountingImportKind.Bank)
+        {
+            <div class="form-field"><label>Bedragkolom (of laat leeg)</label><InputText class="form-control" @bind-Value="_amountColumn" /></div>
+            <div class="form-field"><label>Debetkolom</label><InputText class="form-control" @bind-Value="_debitColumn" /></div>
+            <div class="form-field"><label>Creditkolom</label><InputText class="form-control" @bind-Value="_creditColumn" /></div>
+        }
+        else
+        {
+            <div class="form-field"><label>Kolom 0%</label><InputText class="form-control" @bind-Value="_vat0Column" /></div>
+            <div class="form-field"><label>Kolom 9%</label><InputText class="form-control" @bind-Value="_vat9Column" /></div>
+            <div class="form-field"><label>Kolom 21%</label><InputText class="form-control" @bind-Value="_vat21Column" /></div>
+        }
+        <div class="form-field"><label>CSV-bestand</label><InputFile OnChange="FileSelected" accept=".csv,text/csv" /></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-outline-secondary" @onclick="PreviewAsync" disabled="@(_file is null || _busy)">Voorbeeld tonen</button><button class="btn btn-primary" @onclick="ImportAsync" disabled="@(_file is null || _busy)">Importeren</button></div>
+    @if (_preview is not null)
+    {
+        <p class="text-muted small mt-3">@_preview.TotalRows regels gevonden · @_preview.DuplicateRows duplicaten</p>
+        <div class="table-responsive"><table class="table"><thead><tr><th>Regel</th><th>Datum</th><th>Omschrijving</th><th>Bedrag</th></tr></thead><tbody>@foreach (var row in _preview.Preview) { <tr><td>@row.RowNumber</td><td>@row.Date.ToString("dd-MM-yyyy")</td><td>@row.Description</td><td>@row.Amount</td></tr> }</tbody></table></div>
+    }
+</SectionCard>
+
+<SectionCard Title="Verkoopbronnen" Subtitle="Bezorgorders worden als dagtotalen klaargezet voor controle.">
+    <button class="btn btn-outline-secondary" @onclick="SyncDeliveryAsync" disabled="@_busy">Bezorgdagtotalen bijwerken</button>
+</SectionCard>
+
+<SectionCard Title="Directe koppelingen" Subtitle="Koppelingen synchroniseren dagelijks en kunnen hier direct worden ververst.">
+    @if (_availability is not null)
+    {
+        <div class="integration-method-grid">
+            <div class="integration-method-card">
+                <h2>GoCardless Bank Account Data</h2>
+                @if (!_availability.GoCardlessConfigured) { <p class="text-muted">Niet geconfigureerd in deze omgeving.</p> }
+                else
+                {
+                    <InputSelect class="form-select mb-3" @bind-Value="_institutionId"><option value="">Kies een Nederlandse bank</option>@foreach (var item in _institutions) { <option value="@item.Id">@item.Name</option> }</InputSelect>
+                    <button class="btn btn-primary btn-sm" @onclick="StartGoCardlessAsync" disabled="@string.IsNullOrWhiteSpace(_institutionId)">Bank koppelen</button>
+                }
+            </div>
+            <div class="integration-method-card">
+                <h2>Mollie Connect</h2>
+                <p class="text-muted">@(_availability.MollieConfigured ? "Lees betalingen, fees en settlements via OAuth." : "Niet geconfigureerd in deze omgeving.")</p>
+                @if (_availability.MollieConfigured) { <button class="btn btn-primary btn-sm" @onclick="StartMollieAsync">Mollie koppelen</button> }
+            </div>
+        </div>
+    }
+    <div class="list-stack mt-3">
+        @foreach (var connection in _connections)
+        {
+            <div class="list-row">
+                <div><strong>@connection.Provider</strong><div class="text-muted small">@connection.Status · @(connection.LastSyncedAtUtc?.ToLocalTime().ToString("dd-MM-yyyy HH:mm") ?? "nog niet gesynchroniseerd")</div></div>
+                <div class="form-actions">
+                    @if (connection.Provider == AccountingConnectionProvider.GoCardless && connection.Status == AccountingConnectionStatus.Pending) { <button class="btn btn-primary btn-sm" @onclick="() => CompleteGoCardlessAsync(connection.ExternalId)">Afronden</button> }
+                    @if (connection.Status == AccountingConnectionStatus.Connected) { <button class="btn btn-outline-secondary btn-sm" @onclick="() => SyncConnectionAsync(connection)">Vernieuwen</button> }
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => DisableAsync(connection)">Ontkoppelen</button>
+                </div>
+            </div>
+        }
+    </div>
+</SectionCard>
+
+<SectionCard Title="Eigen categorie" Subtitle="Standaard horecacategorieen zijn al beschikbaar.">
+    <div class="form-grid"><div class="form-field"><label>Naam</label><InputText class="form-control" @bind-Value="_categoryName" /></div><div class="form-field"><label>Type</label><InputSelect class="form-select" @bind-Value="_categoryType"><option value="@AccountingEntryType.Revenue">Omzet</option><option value="@AccountingEntryType.Expense">Kosten</option></InputSelect></div></div>
+    <button class="btn btn-outline-secondary" @onclick="AddCategoryAsync" disabled="@string.IsNullOrWhiteSpace(_categoryName)">Categorie toevoegen</button>
+    <div class="list-stack mt-3">
+        @foreach (var category in _categories)
+        {
+            <div class="list-row">
+                <div><strong>@category.Name</strong><div class="text-muted small">@category.EntryType - @(category.IsDefault ? "standaard" : "eigen")</div></div>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ToggleCategoryAsync(category)">@(category.IsActive ? "Uitschakelen" : "Inschakelen")</button>
+            </div>
+        }
+    </div>
+</SectionCard>
+
+@code {
+    private const long MaxFileSize = 10 * 1024 * 1024;
+    private IBrowserFile? _file;
+    private AccountingImportKind _kind = AccountingImportKind.Bank;
+    private string _dateColumn = "Datum", _descriptionColumn = "Omschrijving", _referenceColumn = "Referentie", _amountColumn = "Bedrag", _debitColumn = string.Empty, _creditColumn = string.Empty, _vat0Column = "Btw0", _vat9Column = "Btw9", _vat21Column = "Btw21";
+    private AccountingImportResultDto? _preview;
+    private List<AccountingImportProfileDto> _profiles = [];
+    private List<AccountingCategoryDto> _categories = [];
+    private AccountingConnectorAvailabilityDto? _availability;
+    private List<AccountingInstitutionDto> _institutions = [];
+    private List<AccountingConnectionDto> _connections = [];
+    private string? _institutionId, _categoryName, _error, _message;
+    private AccountingEntryType _categoryType = AccountingEntryType.Expense;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CompleteMollieFromQueryAsync();
+        await LoadConnectionsAsync();
+    }
+
+    private async Task LoadConnectionsAsync()
+    {
+        try
+        {
+            _availability = await AccountingApi.GetConnectorAvailabilityAsync();
+            _connections = (await AccountingApi.GetConnectionsAsync()).ToList();
+            _profiles = (await AccountingApi.GetImportProfilesAsync()).ToList();
+            _categories = (await AccountingApi.GetCategoriesAsync()).ToList();
+            if (_availability.GoCardlessConfigured) _institutions = (await AccountingApi.GetGoCardlessInstitutionsAsync()).ToList();
+        }
+        catch (ApiClientException ex) { _error = ex.Message; }
+    }
+    private void FileSelected(InputFileChangeEventArgs e) { _file = e.File; _preview = null; }
+    private void ApplyProfile(ChangeEventArgs e)
+    {
+        if (!Guid.TryParse(e.Value?.ToString(), out var id)) return;
+        var profile = _profiles.FirstOrDefault(item => item.Id == id);
+        if (profile is null) return;
+        _kind = profile.ImportKind;
+        _dateColumn = profile.Mapping.DateColumn;
+        _descriptionColumn = profile.Mapping.DescriptionColumn ?? string.Empty;
+        _amountColumn = profile.Mapping.AmountColumn ?? string.Empty;
+        _debitColumn = profile.Mapping.DebitColumn ?? string.Empty;
+        _creditColumn = profile.Mapping.CreditColumn ?? string.Empty;
+        _referenceColumn = profile.Mapping.ReferenceColumn ?? string.Empty;
+        _vat0Column = profile.Mapping.Vat0Column ?? string.Empty;
+        _vat9Column = profile.Mapping.Vat9Column ?? string.Empty;
+        _vat21Column = profile.Mapping.Vat21Column ?? string.Empty;
+        _preview = null;
+    }
+    private AccountingImportMapping Mapping() => new(
+        _dateColumn,
+        _descriptionColumn,
+        _kind == AccountingImportKind.Bank && !string.IsNullOrWhiteSpace(_amountColumn) ? _amountColumn : null,
+        _kind == AccountingImportKind.Bank && !string.IsNullOrWhiteSpace(_debitColumn) ? _debitColumn : null,
+        _kind == AccountingImportKind.Bank && !string.IsNullOrWhiteSpace(_creditColumn) ? _creditColumn : null,
+        _referenceColumn,
+        _kind == AccountingImportKind.Pos ? _vat0Column : null,
+        _kind == AccountingImportKind.Pos ? _vat9Column : null,
+        _kind == AccountingImportKind.Pos ? _vat21Column : null);
+    private async Task PreviewAsync() => await WithFileAsync(async stream => _preview = await AccountingApi.PreviewImportAsync(_kind, Mapping(), stream, _file!.Name));
+    private async Task ImportAsync() => await WithFileAsync(async stream => { var result = await AccountingApi.ImportAsync(_kind, Mapping(), stream, _file!.Name); _preview = result; _message = $"{result.ImportedRows} nieuwe regels staan in de controle-inbox."; await LoadConnectionsAsync(); });
+    private async Task WithFileAsync(Func<Stream, Task> action)
+    {
+        if (_file is null) return; _busy = true; _error = null;
+        try { await using var stream = _file.OpenReadStream(MaxFileSize); await action(stream); }
+        catch (Exception ex) when (ex is ApiClientException or IOException) { _error = ex.Message; }
+        finally { _busy = false; }
+    }
+    private async Task SyncDeliveryAsync() { try { var count = await AccountingApi.SyncDeliveryAsync(); _message = $"{count} nieuwe bezorgdagtotalen klaargezet."; } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task StartMollieAsync() { try { var start = await AccountingApi.StartMollieAsync(); Navigation.NavigateTo(start.AuthorizationUrl, forceLoad: true); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task StartGoCardlessAsync() { try { var start = await AccountingApi.StartGoCardlessAsync(_institutionId!); Navigation.NavigateTo(start.AuthorizationUrl, forceLoad: true); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task CompleteGoCardlessAsync(string id) { try { await AccountingApi.CompleteGoCardlessAsync(id); await LoadConnectionsAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task SyncConnectionAsync(AccountingConnectionDto c) { try { var count = await AccountingApi.SyncConnectionAsync(c.Provider, c.ExternalId); _message = $"{count} nieuwe bronregels opgehaald."; await LoadConnectionsAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task DisableAsync(AccountingConnectionDto c) { try { await AccountingApi.DisableConnectionAsync(c.Provider, c.ExternalId); await LoadConnectionsAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task AddCategoryAsync() { try { await AccountingApi.AddCategoryAsync(_categoryName!, _categoryType); _message = "Categorie toegevoegd."; _categoryName = null; await LoadConnectionsAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task ToggleCategoryAsync(AccountingCategoryDto category) { try { await AccountingApi.SetCategoryActiveAsync(category.Id, !category.IsActive); await LoadConnectionsAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task CompleteMollieFromQueryAsync()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+        if (query.TryGetValue("state", out var state) && query.TryGetValue("code", out var code))
+        {
+            try { await AccountingApi.CompleteMollieAsync(state.ToString(), code.ToString()); _message = "Mollie is gekoppeld."; }
+            catch (ApiClientException ex) { _error = ex.Message; }
+        }
+    }
+}

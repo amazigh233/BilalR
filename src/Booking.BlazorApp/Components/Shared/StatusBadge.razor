@@ -1,0 +1,12 @@
+<span class="status-badge status-badge-@Tone.ToString().ToLowerInvariant() @CssClass">@Label</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter]
+    public StatusTone Tone { get; set; } = StatusTone.Neutral;
+
+    [Parameter]
+    public string? CssClass { get; set; }
+}

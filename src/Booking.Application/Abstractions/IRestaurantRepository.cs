@@ -20,4 +20,13 @@ public interface IRestaurantRepository
         Guid restaurantId,
         IReadOnlyCollection<OpeningHour> openingHours,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyCollection<WidgetAllowedOrigin>> GetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        CancellationToken cancellationToken = default);
+
+    Task SetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        IReadOnlyCollection<WidgetAllowedOrigin> origins,
+        CancellationToken cancellationToken = default);
 }

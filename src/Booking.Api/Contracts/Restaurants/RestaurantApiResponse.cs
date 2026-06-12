@@ -4,4 +4,8 @@ public sealed record RestaurantApiResponse(
     Guid Id,
     string Name,
     string? PhoneNumber,
-    string? Email);
+    string? Email,
+    string WidgetPrimaryColor,
+    string WidgetAccentColor,
+    string? WidgetWelcomeText,
+    string? WidgetLogoUrl);

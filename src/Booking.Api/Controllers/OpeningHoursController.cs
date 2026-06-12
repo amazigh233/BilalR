@@ -1,4 +1,5 @@
 using Booking.Api.Contracts.OpeningHours;
+using Booking.Api.GoogleBusiness;
 using Booking.Application.OpeningHours;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ namespace Booking.Api.Controllers;
 [Route("api/restaurants/{restaurantId}/opening-hours")]
 public sealed class OpeningHoursController(
     SetOpeningHoursUseCase setOpeningHoursUseCase,
-    GetOpeningHoursUseCase getOpeningHoursUseCase) : ApiControllerBase
+    GetOpeningHoursUseCase getOpeningHoursUseCase,
+    GoogleBusinessHoursSyncService gbpHoursSync) : ApiControllerBase
 {
     [HttpPost]
     [Authorize(Policy = "RestaurantOwner")]
@@ -47,6 +49,8 @@ public sealed class OpeningHoursController(
                             openingHour.ClosesAt))
                         .ToList()),
                 cancellationToken);
+
+            _ = gbpHoursSync.SyncAsync(currentRestaurantId);
 
             return Ok(ToApiResponse(response.RestaurantId, response.OpeningHours));
         }
@@ -120,6 +124,8 @@ public sealed class OpeningHoursController(
                             openingHour.ClosesAt))
                         .ToList()),
                 cancellationToken);
+
+            _ = gbpHoursSync.SyncAsync(restaurantId);
 
             return Ok(ToApiResponse(response.RestaurantId, response.OpeningHours));
         }

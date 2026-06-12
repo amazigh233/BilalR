@@ -1,0 +1,221 @@
+@page "/admin/google-business"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject GoogleBusinessApiClient GbpApi
+@inject NavigationManager Navigation
+
+<PageTitle>Google Business Profile</PageTitle>
+
+<PageHeader Eyebrow="Instellingen"
+            Title="Google Business Profile"
+            Description="Koppel je Google-vermelding om openingstijden, recensies en meer vanuit Zambiq te beheren.">
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (_loading)
+{
+    <div class="loading-state">Laden...</div>
+}
+else if (_status is null)
+{
+    <div class="alert alert-warning">Google Business Profile-integratie is niet ingeschakeld op deze omgeving.</div>
+}
+else
+{
+    <div class="responsive-grid staff-layout">
+        <SectionCard Title="Verbinding" Subtitle="Koppel je Google-bedrijfsprofiel aan Zambiq.">
+            @if (_status.Status == GoogleBusinessConnectionStatus.Connected)
+            {
+                <div class="form-field">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <StatusBadge Label="Verbonden" Tone="StatusTone.Success" />
+                    </div>
+                    <div class="text-muted small mb-1">Locatie</div>
+                    <strong>@(_status.GbpLocationName ?? "—")</strong>
+                </div>
+                <div class="form-field">
+                    <div class="text-muted small mb-1">Laatste recensiesync</div>
+                    <span>@(_status.LastReviewSyncAtUtc?.ToString("dd-MM-yyyy HH:mm") ?? "Nog niet gesynchroniseerd")</span>
+                </div>
+                <div class="form-field">
+                    <div class="text-muted small mb-1">Laatste tijdensync</div>
+                    <span>@(_status.LastHoursSyncAtUtc?.ToString("dd-MM-yyyy HH:mm") ?? "Nog niet gesynchroniseerd")</span>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_status.LastSyncError))
+                {
+                    <div class="alert alert-warning mt-2">@_status.LastSyncError</div>
+                }
+                <div class="form-actions">
+                    <button class="btn btn-quiet w-100" @onclick="SyncHoursAsync" disabled="@_isSyncing">
+                        @(_isSyncing ? "Synchroniseren..." : "Openingstijden nu synchroniseren")
+                    </button>
+                    <button class="btn btn-outline-danger w-100" @onclick="DisconnectAsync" disabled="@_isDisconnecting">
+                        @(_isDisconnecting ? "Verwijderen..." : "Verbinding verwijderen")
+                    </button>
+                </div>
+            }
+            else if (_status.Status == GoogleBusinessConnectionStatus.ReconnectRequired)
+            {
+                <div class="form-field">
+                    <StatusBadge Label="Opnieuw verbinden vereist" Tone="StatusTone.Warning" />
+                    @if (!string.IsNullOrWhiteSpace(_status.LastSyncError))
+                    {
+                        <div class="text-muted small mt-2">@_status.LastSyncError</div>
+                    }
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary w-100" @onclick="ConnectAsync" disabled="@_isConnecting">
+                        @(_isConnecting ? "Verbinden..." : "Opnieuw verbinden met Google")
+                    </button>
+                </div>
+            }
+            else
+            {
+                @if (!_status.IsConfigured)
+                {
+                    <div class="alert alert-warning">
+                        Google Business Profile is nog niet geconfigureerd. Stel <code>GoogleBusiness__ClientId</code> en <code>GoogleBusiness__ClientSecret</code> in. Zie <code>SETUP.md</code> voor instructies.
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-3">Koppel je Google-account om openingstijden en recensies te synchroniseren.</p>
+                    <div class="form-actions">
+                        <button class="btn btn-primary w-100" @onclick="ConnectAsync" disabled="@_isConnecting">
+                            @(_isConnecting ? "Verbinden..." : "Verbinden met Google Business Profile")
+                        </button>
+                    </div>
+                }
+            }
+        </SectionCard>
+
+        <SectionCard Title="Functies" Subtitle="Wat je met de koppeling kunt doen.">
+            <div class="list-stack">
+                <div class="list-row">
+                    <div>
+                        <strong>Openingstijden</strong>
+                        <div class="text-muted small">Wijzigingen in Zambiq worden automatisch doorgevoerd in Google.</div>
+                    </div>
+                    <StatusBadge Label="@(_status.Status == GoogleBusinessConnectionStatus.Connected ? "Actief" : "Inactief")"
+                                 Tone="@(_status.Status == GoogleBusinessConnectionStatus.Connected ? StatusTone.Success : StatusTone.Neutral)" />
+                </div>
+                <div class="list-row">
+                    <div>
+                        <strong>Recensies</strong>
+                        <div class="text-muted small">Lees en beantwoord Google-recensies vanuit Zambiq. <a href="/admin/google-business/reviews">Bekijk recensies</a></div>
+                    </div>
+                    <StatusBadge Label="@(_status.Status == GoogleBusinessConnectionStatus.Connected ? "Actief" : "Inactief")"
+                                 Tone="@(_status.Status == GoogleBusinessConnectionStatus.Connected ? StatusTone.Success : StatusTone.Neutral)" />
+                </div>
+                <div class="list-row">
+                    <div>
+                        <strong>Menu</strong>
+                        <div class="text-muted small">Vereist een Zambiq-menu (nog niet beschikbaar).</div>
+                    </div>
+                    <StatusBadge Label="Binnenkort" Tone="StatusTone.Neutral" />
+                </div>
+            </div>
+        </SectionCard>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _isConnecting;
+    private bool _isDisconnecting;
+    private bool _isSyncing;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private GbpStatusDto? _status;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStatusAsync();
+    }
+
+    private async Task LoadStatusAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        try
+        {
+            _status = await GbpApi.GetStatusAsync();
+        }
+        catch (ApiClientException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _status = null;
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ConnectAsync()
+    {
+        _isConnecting = true;
+        _errorMessage = null;
+        try
+        {
+            var result = await GbpApi.StartConnectAsync();
+            Navigation.NavigateTo(result.AuthorizationUrl, forceLoad: true);
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+            _isConnecting = false;
+        }
+    }
+
+    private async Task DisconnectAsync()
+    {
+        _isDisconnecting = true;
+        _errorMessage = null;
+        try
+        {
+            await GbpApi.DisconnectAsync();
+            _successMessage = "Verbinding met Google Business Profile verwijderd.";
+            await LoadStatusAsync();
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isDisconnecting = false;
+        }
+    }
+
+    private async Task SyncHoursAsync()
+    {
+        _isSyncing = true;
+        _errorMessage = null;
+        try
+        {
+            await GbpApi.SyncHoursAsync();
+            _successMessage = "Openingstijden zijn gesynchroniseerd met Google Business Profile.";
+            await LoadStatusAsync();
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSyncing = false;
+        }
+    }
+}

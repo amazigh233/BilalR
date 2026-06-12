@@ -3,17 +3,18 @@
 @rendermode InteractiveServer
 @inject RestaurantApiClient RestaurantApi
 @inject ReservationApiClient ReservationApi
+@inject TableApiClient TableApi
+@inject AuthenticationStateProvider AuthState
 
 <PageTitle>Reserveringen</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Reserveringen</p>
-        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
-        <p class="text-muted mb-0">Bekijk reserveringen en wijzig de status.</p>
-    </div>
-    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
-</section>
+<PageHeader Eyebrow="Reserveringen"
+            Title="@(_restaurant?.Name ?? "Reserveringen")"
+            Description="Bekijk aankomende gasten, filter het overzicht en werk reserveringsstatussen bij.">
+    <Actions>
+        <button class="btn btn-quiet" type="button" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
+    </Actions>
+</PageHeader>
 
 @if (!string.IsNullOrWhiteSpace(_successMessage))
 {
@@ -31,77 +32,117 @@
 }
 else if (!_loadFailed)
 {
-    <section class="content-section">
-        <div class="filters">
-            <div class="form-field">
-                <label for="reservation-date-filter">Datum</label>
-                <input id="reservation-date-filter"
-                       class="form-control"
-                       type="date"
-                       value="@_dateFilter"
-                       @onchange="eventArgs => _dateFilter = eventArgs.Value?.ToString() ?? string.Empty" />
-            </div>
-            <div class="form-field">
-                <label for="reservation-status-filter">Status</label>
-                <select id="reservation-status-filter" class="form-select" @bind="_statusFilter">
-                    <option value="">Alle statussen</option>
-                    @foreach (var status in Enum.GetValues<ReservationStatus>())
-                    {
-                        <option value="@status">@status</option>
-                    }
-                </select>
-            </div>
-            <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="ClearFilters">Filters wissen</button>
-            <button class="btn btn-outline-secondary align-self-end" type="button" @onclick="LoadAsync" disabled="@_isLoading">Vernieuwen</button>
+    <SectionCard Title="Filters"
+                 Subtitle="Vind snel de reserveringen die aandacht nodig hebben."
+                 CssClass="filter-card"
+                 BodyCssClass="reservation-filter-grid">
+        <div class="form-field">
+            <label for="reservation-date-filter">Datum</label>
+            <input id="reservation-date-filter"
+                   class="form-control"
+                   type="date"
+                   value="@_dateFilter"
+                   @onchange="eventArgs => _dateFilter = eventArgs.Value?.ToString() ?? string.Empty" />
         </div>
-    </section>
-
-    <section class="content-section">
-        <div class="section-heading">
-            <h2>Overzicht</h2>
-            <span class="text-muted small">@FilteredReservations.Count() gevonden</span>
+        <div class="form-field">
+            <label for="reservation-status-filter">Status</label>
+            <select id="reservation-status-filter" class="form-select" @bind="_statusFilter">
+                <option value="">Alle statussen</option>
+                @foreach (var status in Enum.GetValues<ReservationStatus>())
+                {
+                    <option value="@status">@GetStatusDisplayLabel(status)</option>
+                }
+            </select>
         </div>
+        <button class="btn btn-quiet align-self-end" type="button" @onclick="ClearFilters">Filters wissen</button>
+    </SectionCard>
 
+    <SectionCard Title="Reserveringsoverzicht"
+                 Subtitle="@($"{FilteredReservations.Count()} reserveringen gevonden")"
+                 CssClass="reservation-table-card"
+                 BodyCssClass="flush-card-body">
         @if (!FilteredReservations.Any())
         {
-            <p class="empty-state"><strong>Geen reserveringen gevonden</strong>Pas de filters aan of vernieuw de lijst.</p>
+            <EmptyState Icon="icon-calendar"
+                        Title="Geen reserveringen gevonden"
+                        Description="Pas de filters aan of vernieuw het overzicht." />
         }
         else
         {
             <div class="table-responsive">
-                <table class="table align-middle">
+                <table class="table reservation-table align-middle">
                     <thead>
                         <tr>
-                            <th>Datum</th>
-                            <th>Klant</th>
-                            <th>Personen</th>
+                            <th>Datum en tijd</th>
+                            <th>Gast</th>
+                            <th>Groep</th>
                             <th>Status</th>
+                            @if (_isOwner)
+                            {
+                                <th>Tafel</th>
+                            }
                             <th>Opmerking</th>
-                            <th class="text-end">Wijzigen</th>
+                            <th class="text-end">Acties</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var reservation in FilteredReservations)
                         {
                             <tr>
-                                <td data-label="Datum">@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</td>
-                                <td data-label="Klant">
-                                    <strong>@reservation.CustomerName</strong>
-                                    <div class="text-muted small">@reservation.CustomerEmail</div>
-                                    <div class="text-muted small">@(reservation.CustomerPhoneNumber ?? "-")</div>
+                                <td data-label="Datum en tijd">
+                                    <strong>@reservation.ReservationDateTime.ToString("dd MMM yyyy")</strong>
+                                    <div class="table-secondary-text">@reservation.ReservationDateTime.ToString("HH:mm") uur</div>
                                 </td>
-                                <td data-label="Personen">@reservation.PartySize</td>
-                                <td data-label="Status"><span class="status-pill @GetStatusBadgeClass(reservation.Status)">@reservation.Status</span></td>
-                                <td data-label="Opmerking" class="reservation-note">@(string.IsNullOrWhiteSpace(reservation.Note) ? "-" : reservation.Note)</td>
-                                <td data-label="Wijzigen">
+                                <td data-label="Gast">
+                                    <strong>@reservation.CustomerName</strong>
+                                    <div class="table-secondary-text">@reservation.CustomerEmail</div>
+                                    <div class="table-secondary-text">@(reservation.CustomerPhoneNumber ?? "Geen telefoonnummer")</div>
+                                </td>
+                                <td data-label="Groep">
+                                    <span class="party-size">@reservation.PartySize</span>
+                                    <span class="table-secondary-text">personen</span>
+                                </td>
+                                <td data-label="Status">
+                                    <StatusBadge Label="@GetStatusDisplayLabel(reservation.Status)"
+                                                 Tone="@GetStatusTone(reservation.Status)" />
+                                </td>
+                                @if (_isOwner)
+                                {
+                                    <td data-label="Tafel">
+                                        @if (_assigningReservationIds.Contains(reservation.Id))
+                                        {
+                                            <span class="text-muted small">Opslaan...</span>
+                                        }
+                                        else
+                                        {
+                                            <select class="form-select form-select-sm table-assign-select"
+                                                    value="@(reservation.TableId?.ToString() ?? "")"
+                                                    @onchange="args => AssignTableAsync(reservation.Id, args.Value?.ToString())">
+                                                <option value="">— Geen tafel —</option>
+                                                @foreach (var table in ActiveTables)
+                                                {
+                                                    <option value="@table.Id">@table.Name (@table.Capacity p.)</option>
+                                                }
+                                            </select>
+                                            @if (_tableAssignErrors.TryGetValue(reservation.Id, out var assignError))
+                                            {
+                                                <div class="text-danger small mt-1">@assignError</div>
+                                            }
+                                        }
+                                    </td>
+                                }
+                                <td data-label="Opmerking" class="reservation-note">
+                                    @(string.IsNullOrWhiteSpace(reservation.Note) ? "Geen opmerking" : reservation.Note)
+                                </td>
+                                <td data-label="Acties">
                                     <div class="table-actions">
                                         @foreach (var status in ChangeableStatuses)
                                         {
-                                            <button class="btn btn-outline-secondary btn-sm"
+                                            <button class="btn btn-action btn-sm @GetActionClass(status)"
                                                     type="button"
                                                     disabled="@IsStatusButtonDisabled(reservation, status)"
                                                     @onclick="() => ChangeStatusAsync(reservation.Id, status)">
-                                                @GetStatusLabel(status)
+                                                @GetStatusActionLabel(status)
                                             </button>
                                         }
                                     </div>
@@ -112,7 +153,7 @@ else if (!_loadFailed)
                 </table>
             </div>
         }
-    </section>
+    </SectionCard>
 }
 
 @code {
@@ -125,13 +166,19 @@ else if (!_loadFailed)
 
     private RestaurantDto? _restaurant;
     private List<ReservationDto> _reservations = [];
+    private List<TableDto> _tables = [];
     private readonly HashSet<Guid> _updatingReservationIds = [];
+    private readonly HashSet<Guid> _assigningReservationIds = [];
+    private readonly Dictionary<Guid, string> _tableAssignErrors = [];
     private bool _isLoading = true;
     private bool _loadFailed;
+    private bool _isOwner;
     private string _dateFilter = string.Empty;
     private string _statusFilter = string.Empty;
     private string? _errorMessage;
     private string? _successMessage;
+
+    private IEnumerable<TableDto> ActiveTables => _tables.Where(t => t.IsActive);
 
     private IEnumerable<ReservationDto> FilteredReservations
     {
@@ -156,6 +203,8 @@ else if (!_loadFailed)
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _isOwner = authState.User.IsInRole("Owner");
         await LoadAsync();
     }
 
@@ -167,8 +216,15 @@ else if (!_loadFailed)
 
         try
         {
-            _restaurant = await RestaurantApi.GetCurrentAsync();
-            _reservations = (await ReservationApi.GetCurrentRestaurantAsync()).ToList();
+            var restaurantTask = RestaurantApi.GetCurrentAsync();
+            var reservationsTask = ReservationApi.GetCurrentRestaurantAsync();
+            var tablesTask = _isOwner ? TableApi.GetAllAsync() : Task.FromResult<IReadOnlyList<TableDto>>([]);
+
+            await Task.WhenAll(restaurantTask, reservationsTask, tablesTask);
+
+            _restaurant = await restaurantTask;
+            _reservations = (await reservationsTask).ToList();
+            _tables = (await tablesTask).ToList();
         }
         catch (ApiClientException exception)
         {
@@ -178,6 +234,32 @@ else if (!_loadFailed)
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task AssignTableAsync(Guid reservationId, string? tableIdString)
+    {
+        _assigningReservationIds.Add(reservationId);
+        _tableAssignErrors.Remove(reservationId);
+
+        try
+        {
+            var tableId = string.IsNullOrEmpty(tableIdString) ? (Guid?)null : Guid.Parse(tableIdString);
+            await TableApi.AssignToReservationAsync(reservationId, tableId);
+
+            var index = _reservations.FindIndex(r => r.Id == reservationId);
+            if (index >= 0)
+            {
+                _reservations[index] = _reservations[index] with { TableId = tableId };
+            }
+        }
+        catch (ApiClientException exception)
+        {
+            _tableAssignErrors[reservationId] = exception.Message;
+        }
+        finally
+        {
+            _assigningReservationIds.Remove(reservationId);
         }
     }
 
@@ -219,7 +301,7 @@ else if (!_loadFailed)
         _statusFilter = string.Empty;
     }
 
-    private static string GetStatusLabel(ReservationStatus status)
+    private static string GetStatusActionLabel(ReservationStatus status)
     {
         return status switch
         {
@@ -230,14 +312,36 @@ else if (!_loadFailed)
         };
     }
 
-    private static string GetStatusBadgeClass(ReservationStatus status)
+    private static string GetStatusDisplayLabel(ReservationStatus status)
     {
         return status switch
         {
-            ReservationStatus.New => "status-new",
-            ReservationStatus.Confirmed => "status-confirmed",
-            ReservationStatus.Cancelled => "status-cancelled",
-            ReservationStatus.NoShow => "status-noshow",
+            ReservationStatus.New => "Nieuw",
+            ReservationStatus.Confirmed => "Bevestigd",
+            ReservationStatus.Cancelled => "Geannuleerd",
+            ReservationStatus.NoShow => "No-show",
+            _ => status.ToString()
+        };
+    }
+
+    private static StatusTone GetStatusTone(ReservationStatus status)
+    {
+        return status switch
+        {
+            ReservationStatus.New => StatusTone.Warning,
+            ReservationStatus.Confirmed => StatusTone.Success,
+            ReservationStatus.Cancelled => StatusTone.Danger,
+            ReservationStatus.NoShow => StatusTone.Neutral,
+            _ => StatusTone.Neutral
+        };
+    }
+
+    private static string GetActionClass(ReservationStatus status)
+    {
+        return status switch
+        {
+            ReservationStatus.Confirmed => "btn-action-success",
+            ReservationStatus.Cancelled => "btn-action-danger",
             _ => string.Empty
         };
     }

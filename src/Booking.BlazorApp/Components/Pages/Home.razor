@@ -1,24 +1,77 @@
 @page "/"
+@layout Layout.PublicLayout
 @attribute [AllowAnonymous]
 @rendermode InteractiveServer
 
-<PageTitle>Booking</PageTitle>
+<PageTitle>Zambiq</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">MVP 1</p>
-        <h1>Centraal reserveringsplatform</h1>
-        <p class="text-muted mb-0">Beheer restaurants, openingstijden en reserveringen vanuit een eenvoudige Blazor UI.</p>
+<section class="landing-hero">
+    <div class="landing-hero-copy">
+        <div class="landing-edition"><span>01</span> Gebouwd voor de vloer</div>
+        <p class="eyebrow">Zambiq service OS</p>
+        <h1>Run iedere service. <span>Zonder ruis.</span></h1>
+        <p class="landing-lead">Van eerste reservering tot laatste tafel: één scherpe werkplek voor je planning, team en dagelijkse operatie.</p>
+        <div class="landing-actions">
+            <a class="btn btn-primary btn-lg" href="/login">Open je werkplek <span aria-hidden="true">&rarr;</span></a>
+            <a class="btn btn-quiet btn-lg" href="#zambiq-overzicht">Bekijk het systeem</a>
+        </div>
+        <div class="landing-proof">
+            <span><b>01</b> Live overzicht</span>
+            <span><b>02</b> Minder schakelen</span>
+            <span><b>03</b> Meer aandacht voor gasten</span>
+        </div>
+    </div>
+
+    <div class="landing-preview" aria-label="Voorbeeld van het Zambiq dashboard">
+        <div class="landing-preview-top">
+            <span class="landing-preview-brand">Z</span>
+            <span>Vandaag</span>
+            <span class="landing-preview-live"><i></i> Live</span>
+        </div>
+        <div class="landing-preview-heading">
+            <span>Maandag, 8 juni</span>
+            <strong>Serviceoverzicht</strong>
+        </div>
+        <div class="landing-preview-stats">
+            <div><span>Reserveringen</span><strong>12</strong><small>+3 vandaag</small></div>
+            <div><span>Gasten</span><strong>38</strong><small>86% bezet</small></div>
+            <div><span>Team</span><strong>04</strong><small>Compleet</small></div>
+        </div>
+        <div class="landing-preview-list">
+            <span><strong>18:30</strong><b>Familie De Boer</b><small>4 gasten</small></span>
+            <span><strong>19:00</strong><b>Amira Jansen</b><small>2 gasten</small></span>
+            <span><strong>20:15</strong><b>Studio Noord</b><small>6 gasten</small></span>
+        </div>
     </div>
 </section>
 
-<div class="action-grid">
-    <a class="action-card" href="/admin">
-        <span class="action-card-title">Dashboard</span>
-        <span>Ga naar de beheeromgeving.</span>
-    </a>
-    <a class="action-card" href="/admin/reservations">
-        <span class="action-card-title">Reserveringen</span>
-        <span>Bekijk en beheer reserveringen.</span>
-    </a>
-</div>
+<section class="landing-manifesto" id="zambiq-overzicht">
+    <p class="eyebrow">Focus op service</p>
+    <p>Rust in de operatie. Snelheid op de vloer. Aandacht voor iedere gast.</p>
+</section>
+
+<section class="landing-feature-grid" aria-label="Voordelen van Zambiq">
+    <article>
+        <span>01</span>
+        <h2>Zie wat telt.</h2>
+        <p>Direct zicht op reserveringen, gasten en acties die vandaag aandacht vragen.</p>
+    </article>
+    <article>
+        <span>02</span>
+        <h2>Beweeg als één team.</h2>
+        <p>Roosters, beschikbaarheid en verlof helder geregeld vanuit dezelfde werkplek.</p>
+    </article>
+    <article>
+        <span>03</span>
+        <h2>Maak boeken moeiteloos.</h2>
+        <p>Een snelle en verzorgde reserveringservaring die bij je restaurant past.</p>
+    </article>
+</section>
+
+<section class="landing-closing">
+    <div>
+        <p class="eyebrow">Zambiq</p>
+        <h2>Alles klaar voor de volgende service.</h2>
+    </div>
+    <a class="btn btn-primary btn-lg" href="/login">Inloggen <span aria-hidden="true">&rarr;</span></a>
+</section>

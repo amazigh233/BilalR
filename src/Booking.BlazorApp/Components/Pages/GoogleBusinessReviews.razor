@@ -1,0 +1,229 @@
+@page "/admin/google-business/reviews"
+@attribute [Authorize(Roles = "Owner,Staff")]
+@rendermode InteractiveServer
+@inject GoogleBusinessApiClient GbpApi
+
+<PageTitle>Google-recensies</PageTitle>
+
+<PageHeader Eyebrow="Google Business Profile"
+            Title="Recensies"
+            Description="Lees en beantwoord de Google-recensies van je restaurant.">
+    <Actions>
+        <a class="btn btn-quiet btn-sm" href="/admin/google-business">Instellingen</a>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+@if (_loading)
+{
+    <div class="loading-state">Recensies laden...</div>
+}
+else if (_reviews.Count == 0)
+{
+    <EmptyState Icon="icon-reviews"
+                Title="Geen recensies"
+                Description="Er zijn nog geen Google-recensies gesynchroniseerd. Verbind Google Business Profile en wacht op de volgende synchronisatie." />
+}
+else
+{
+    <div class="filter-bar mb-4">
+        <button class="btn @(_filter == "all" ? "btn-primary" : "btn-quiet") btn-sm"
+                @onclick='() => _filter = "all"'>Alle (@_reviews.Count)</button>
+        <button class="btn @(_filter == "unreplied" ? "btn-primary" : "btn-quiet") btn-sm"
+                @onclick='() => _filter = "unreplied"'>Zonder antwoord (@_reviews.Count(r => r.ReplyComment == null))</button>
+        <button class="btn @(_filter == "replied" ? "btn-primary" : "btn-quiet") btn-sm"
+                @onclick='() => _filter = "replied"'>Met antwoord (@_reviews.Count(r => r.ReplyComment != null))</button>
+    </div>
+
+    @foreach (var review in FilteredReviews)
+    {
+        <div class="review-card @(review.IsRead ? "" : "review-card-unread")">
+            <div class="review-header">
+                <div class="review-stars">
+                    @for (var i = 1; i <= 5; i++)
+                    {
+                        <span class="review-star @(i <= review.StarRating ? StarClass(review.StarRating) : "review-star-empty")">★</span>
+                    }
+                    <span class="review-rating-label">@review.StarRating / 5</span>
+                </div>
+                <div>
+                    <strong>@(review.ReviewerDisplayName ?? "Anoniem")</strong>
+                    <div class="text-muted small">@review.CreateTime.ToString("dd-MM-yyyy")</div>
+                </div>
+                @if (!review.IsRead)
+                {
+                    <button class="btn btn-quiet btn-sm ms-auto"
+                            @onclick="() => MarkReadAsync(review)">Markeer gelezen</button>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(review.Comment))
+            {
+                <p class="review-comment">@review.Comment</p>
+            }
+
+            @if (review.ReplyComment is not null)
+            {
+                <div class="review-reply">
+                    <div class="text-muted small mb-1">Uw antwoord · @review.ReplyUpdateTime?.ToString("dd-MM-yyyy")</div>
+                    @if (_editingReviewId == review.Id)
+                    {
+                        <textarea class="form-control mb-2" rows="3" @bind="_replyText" placeholder="Antwoord bewerken..."></textarea>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary btn-sm" @onclick="() => SubmitReplyAsync(review)" disabled="@_isSaving">
+                                @(_isSaving ? "Opslaan..." : "Opslaan")
+                            </button>
+                            <button class="btn btn-quiet btn-sm" @onclick="CancelEdit">Annuleren</button>
+                            <button class="btn btn-outline-danger btn-sm ms-auto" @onclick="() => DeleteReplyAsync(review)" disabled="@_isSaving">Verwijderen</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="review-reply-text">@review.ReplyComment</p>
+                        <button class="btn btn-quiet btn-sm" @onclick="() => StartEdit(review)">Bewerken</button>
+                    }
+                </div>
+            }
+            else if (_editingReviewId == review.Id)
+            {
+                <div class="review-reply-form">
+                    <textarea class="form-control mb-2" rows="3" @bind="_replyText" placeholder="Schrijf een antwoord..."></textarea>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" @onclick="() => SubmitReplyAsync(review)" disabled="@_isSaving">
+                            @(_isSaving ? "Verzenden..." : "Verzenden")
+                        </button>
+                        <button class="btn btn-quiet btn-sm" @onclick="CancelEdit">Annuleren</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-quiet btn-sm mt-2" @onclick="() => StartEdit(review)">Antwoorden</button>
+            }
+        </div>
+    }
+}
+
+@code {
+    private List<GbpReviewDto> _reviews = [];
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string _filter = "all";
+    private Guid? _editingReviewId;
+    private string _replyText = string.Empty;
+    private bool _isSaving;
+
+    private IEnumerable<GbpReviewDto> FilteredReviews => _filter switch
+    {
+        "unreplied" => _reviews.Where(r => r.ReplyComment == null),
+        "replied" => _reviews.Where(r => r.ReplyComment != null),
+        _ => _reviews
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReviewsAsync();
+    }
+
+    private async Task LoadReviewsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _reviews = (await GbpApi.GetReviewsAsync()).ToList();
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void StartEdit(GbpReviewDto review)
+    {
+        _editingReviewId = review.Id;
+        _replyText = review.ReplyComment ?? string.Empty;
+        _errorMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingReviewId = null;
+        _replyText = string.Empty;
+    }
+
+    private async Task SubmitReplyAsync(GbpReviewDto review)
+    {
+        if (string.IsNullOrWhiteSpace(_replyText)) return;
+        _isSaving = true;
+        _errorMessage = null;
+        try
+        {
+            await GbpApi.UpsertReplyAsync(review.ReviewName, _replyText.Trim());
+            var index = _reviews.FindIndex(r => r.Id == review.Id);
+            if (index >= 0)
+                _reviews[index] = review with { ReplyComment = _replyText.Trim(), ReplyUpdateTime = DateTime.Now };
+            _editingReviewId = null;
+            _replyText = string.Empty;
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeleteReplyAsync(GbpReviewDto review)
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        try
+        {
+            await GbpApi.DeleteReplyAsync(review.ReviewName);
+            var index = _reviews.FindIndex(r => r.Id == review.Id);
+            if (index >= 0)
+                _reviews[index] = review with { ReplyComment = null, ReplyUpdateTime = null };
+            _editingReviewId = null;
+            _replyText = string.Empty;
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task MarkReadAsync(GbpReviewDto review)
+    {
+        try
+        {
+            await GbpApi.MarkReadAsync(review.ReviewName);
+            var index = _reviews.FindIndex(r => r.Id == review.Id);
+            if (index >= 0) _reviews[index] = review with { IsRead = true };
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+
+    private static string StarClass(int stars) => stars switch
+    {
+        >= 4 => "review-star-green",
+        3 => "review-star-amber",
+        _ => "review-star-red"
+    };
+}

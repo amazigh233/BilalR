@@ -1,0 +1,130 @@
+@page "/admin/boekhouding/inbox"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject AccountingApiClient AccountingApi
+
+<PageTitle>Controle-inbox</PageTitle>
+<PageHeader Eyebrow="Boekhouding" Title="Controle-inbox" Description="Controleer geimporteerde bank-, kassa-, bezorg- en Mollieregels voordat ze meetellen." />
+
+@if (!string.IsNullOrWhiteSpace(_error)) { <div class="alert alert-danger">@_error</div> }
+@if (_selected is not null)
+{
+    <SectionCard Title="Regel bevestigen" Subtitle="@($"{_selected.TransactionDate:dd-MM-yyyy} · {_selected.Description}")">
+        <div class="form-grid">
+            <div class="form-field"><label>Type</label><InputSelect class="form-select" @bind-Value="_type"><option value="@AccountingEntryType.Revenue">Omzet</option><option value="@AccountingEntryType.Expense">Kosten</option><option value="@AccountingEntryType.Transfer">Transfer</option></InputSelect></div>
+            <div class="form-field"><label>Categorie</label><InputSelect class="form-select" @bind-Value="_categoryId"><option value="">Geen categorie</option>@foreach (var c in CategoriesForType()) { <option value="@c.Id">@c.Name</option> }</InputSelect></div>
+            <div class="form-field"><label>Btw-tarief</label><InputSelect class="form-select" @bind-Value="_vatRate"><option value="0">0%</option><option value="9">9%</option><option value="21">21%</option></InputSelect></div>
+            <div class="form-field"><label>Bruto bedrag</label><InputNumber class="form-control" @bind-Value="_gross" step="0.01" /></div>
+            @if (_type == AccountingEntryType.Expense)
+            {
+                <div class="form-field"><label>Aftrekbare btw</label><InputNumber class="form-control" @bind-Value="_deductibleVat" step="0.01" /></div>
+            }
+        </div>
+        @if (IsBankSource(_selected))
+        {
+            <div class="form-grid mt-3">
+                <div class="form-field">
+                    <label>Match met verkoopbron</label>
+                    <InputSelect class="form-select" @bind-Value="_matchTargetId">
+                        <option value="">Kies een bronregel</option>
+                        @foreach (var candidate in MatchCandidates())
+                        {
+                            <option value="@candidate.Id">@candidate.TransactionDate.ToString("dd-MM-yyyy") - @candidate.Description - @Money(candidate.Amount)</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+        }
+        <div class="form-actions">
+            <button class="btn btn-primary" @onclick="ConfirmAsync">Bevestigen</button>
+            @if (IsBankSource(_selected)) { <button class="btn btn-outline-secondary" @onclick="MatchAsync" disabled="@(!_matchTargetId.HasValue)">Matchen</button> }
+            <button class="btn btn-outline-secondary" @onclick="Cancel">Annuleren</button>
+        </div>
+    </SectionCard>
+}
+
+@if (_loading) { <div class="loading-state">Inbox laden...</div> }
+else if (_items.Count == 0) { <EmptyState Icon="icon-analytics" Title="Alles gecontroleerd" Description="Er staan geen nieuwe bronregels klaar." /> }
+else
+{
+    <SectionCard Title="Open regels" Subtitle="@($"{_items.Count} regels wachten op controle")">
+        <div class="list-stack">
+            @foreach (var item in _items)
+            {
+                <div class="list-row">
+                    <div><strong>@item.Description</strong><div class="text-muted small">@item.TransactionDate.ToString("dd-MM-yyyy") · @SourceLabel(item.SourceKind)</div></div>
+                    <div class="form-actions"><strong>@Money(item.Amount)</strong><button class="btn btn-primary btn-sm" @onclick="() => Select(item)">Controleren</button><button class="btn btn-outline-secondary btn-sm" @onclick="() => IgnoreAsync(item.Id)">Negeren</button></div>
+                </div>
+            }
+        </div>
+    </SectionCard>
+}
+
+@code {
+    private List<AccountingSourceTransactionDto> _items = [];
+    private List<AccountingCategoryDto> _categories = [];
+    private AccountingSourceTransactionDto? _selected;
+    private AccountingEntryType _type;
+    private Guid? _categoryId;
+    private int _vatRate = 9;
+    private decimal _gross;
+    private decimal _deductibleVat;
+    private Guid? _matchTargetId;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() { await LoadAsync(); }
+    private async Task LoadAsync()
+    {
+        _loading = true; _error = null;
+        try { _items = (await AccountingApi.GetReviewItemsAsync()).ToList(); _categories = (await AccountingApi.GetCategoriesAsync()).Where(c => c.IsActive).ToList(); }
+        catch (ApiClientException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+    private void Select(AccountingSourceTransactionDto item)
+    {
+        _selected = item;
+        _type = SuggestedType(item);
+        _gross = SuggestedGross(item);
+        _categoryId = null;
+        _matchTargetId = null;
+        _vatRate = 9;
+        _deductibleVat = 0;
+    }
+    private void Cancel() => _selected = null;
+    private IEnumerable<AccountingCategoryDto> CategoriesForType() => _categories.Where(c => c.EntryType == _type);
+    private async Task ConfirmAsync()
+    {
+        if (_selected is null) return;
+        try
+        {
+            await AccountingApi.ReviewSourceAsync(_selected.Id, new SaveAccountingEntryRequest(_type, _selected.TransactionDate, _selected.Description, [new AccountingSplitRequest(_categoryId, _vatRate, _gross, _type == AccountingEntryType.Expense ? _deductibleVat : 0)]));
+            _selected = null; await LoadAsync();
+        }
+        catch (ApiClientException ex) { _error = ex.Message; }
+    }
+    private async Task IgnoreAsync(Guid id) { try { await AccountingApi.IgnoreSourceAsync(id); await LoadAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task MatchAsync()
+    {
+        if (_selected is null || !_matchTargetId.HasValue) return;
+        try { await AccountingApi.MatchSourcesAsync(_selected.Id, _matchTargetId.Value); _selected = null; await LoadAsync(); }
+        catch (ApiClientException ex) { _error = ex.Message; }
+    }
+    private IEnumerable<AccountingSourceTransactionDto> MatchCandidates() =>
+        _items.Where(item => item.Id != _selected?.Id && !IsBankSource(item));
+    private static bool IsBankSource(AccountingSourceTransactionDto item) =>
+        item.SourceKind is AccountingSourceKind.BankCsv or AccountingSourceKind.GoCardless;
+    private static AccountingEntryType SuggestedType(AccountingSourceTransactionDto item) =>
+        item.SourceKind == AccountingSourceKind.Mollie && item.Description.Contains("settlement", StringComparison.OrdinalIgnoreCase)
+            ? AccountingEntryType.Transfer
+            : item.Amount < 0 && !(item.SourceKind == AccountingSourceKind.Mollie && item.Description.Contains("terugbetaling", StringComparison.OrdinalIgnoreCase))
+                ? AccountingEntryType.Expense
+                : AccountingEntryType.Revenue;
+    private static decimal SuggestedGross(AccountingSourceTransactionDto item) =>
+        item.SourceKind == AccountingSourceKind.Mollie && item.Description.Contains("terugbetaling", StringComparison.OrdinalIgnoreCase)
+            ? -Math.Abs(item.Amount)
+            : Math.Abs(item.Amount);
+    private static string Money(decimal value) => value.ToString("C", CultureInfo.GetCultureInfo("nl-NL"));
+    private static string SourceLabel(AccountingSourceKind kind) => kind switch { AccountingSourceKind.BankCsv => "Bank CSV", AccountingSourceKind.PosCsv => "Kassa CSV", AccountingSourceKind.GoCardless => "Bankkoppeling", AccountingSourceKind.Mollie => "Mollie", AccountingSourceKind.Delivery => "Bezorging", _ => kind.ToString() };
+}

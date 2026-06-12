@@ -1,0 +1,497 @@
+@page "/admin/tafels/plattegrond"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject TableApiClient TableApi
+@inject ReservationApiClient ReservationApi
+
+<PageTitle>Plattegrond</PageTitle>
+
+<PageHeader Eyebrow="Reserveringsbeheer"
+            Title="Plattegrond"
+            Description="Sleep reserveringen op tafels voor vandaag. Schakel naar bewerkmodus om tafels te herpositioneren.">
+    <Actions>
+        <a class="btn btn-quiet btn-sm floor-mode-toggle" href="/admin/tafels">Tafelbeheer</a>
+        <button class="btn @(_editMode ? "btn-primary" : "btn-quiet") btn-sm floor-mode-toggle"
+                type="button"
+                @onclick="ToggleEditMode">
+            @(_editMode ? "Klaar met bewerken" : "Plattegrond bewerken")
+        </button>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+@if (!string.IsNullOrWhiteSpace(_toastMessage))
+{
+    <div class="alert @(_toastIsWarning ? "alert-warning" : "alert-danger") floor-toast">@_toastMessage</div>
+}
+
+@if (_isLoading)
+{
+    <div class="loading-state">Plattegrond laden...</div>
+}
+else if (_tables.Count == 0)
+{
+    <EmptyState Icon="icon-table"
+                Title="Nog geen tafels"
+                Description="Voeg eerst tafels toe via Tafelbeheer.">
+        <Action>
+            <a class="btn btn-outline-secondary btn-sm" href="/admin/tafels">Naar Tafelbeheer</a>
+        </Action>
+    </EmptyState>
+}
+else
+{
+    <div class="floor-layout">
+        <div class="floor-canvas-wrap">
+            <div class="floor-canvas"
+                 ondragover="event.preventDefault()"
+                 @ondrop="HandleCanvasDrop">
+                @foreach (var table in _tables.Where(t => t.IsActive).OrderBy(t => t.Name))
+                {
+                    var occ = GetOccupancy(table.Id);
+                    <div class="floor-table floor-table-@table.Shape.ToString().ToLower() floor-table-@occ.CssClass"
+                         style="left:@(table.PosX)px;top:@(table.PosY)px"
+                         draggable="@(_editMode ? "true" : "false")"
+                         ondragover="event.preventDefault()"
+                         @ondragstart="args => OnTableDragStart(args, table)"
+                         @ondrop="args => OnDropOnTable(args, table)"
+                         @onclick="() => SelectTable(table)">
+                        <span class="floor-table-name">@table.Name</span>
+                        <span class="floor-table-cap">@table.Capacity p.</span>
+                        <StatusBadge Label="@occ.Label" Tone="@occ.Tone" />
+                    </div>
+                }
+            </div>
+            <div class="floor-legend">
+                <span class="floor-legend-item floor-legend-free">Vrij</span>
+                <span class="floor-legend-item floor-legend-reserved">Verwacht / Gereserveerd</span>
+                <span class="floor-legend-item floor-legend-occupied">Bezet</span>
+                @if (_editMode)
+                {
+                    <span class="floor-legend-edit">Sleep tafels om te herpositioneren · raster: 10 px</span>
+                }
+            </div>
+        </div>
+
+        @if (!_editMode)
+        {
+            <div class="floor-sidebar">
+                @if (_selectedTable is not null)
+                {
+                    <div class="floor-sidebar-detail">
+                        <div class="floor-sidebar-detail-header">
+                            <div>
+                                <strong>@_selectedTable.Name</strong>
+                                <span class="text-muted small"> · @_selectedTable.Capacity p.</span>
+                            </div>
+                            <button class="btn btn-quiet btn-sm" type="button"
+                                    @onclick="() => _selectedTable = null">Sluiten</button>
+                        </div>
+                        @{
+                            var assigned = GetAssignedReservation(_selectedTable.Id);
+                        }
+                        @if (assigned is not null)
+                        {
+                            <div class="floor-sidebar-assigned">
+                                <strong>@assigned.CustomerName</strong>
+                                <div class="text-muted small">@assigned.ReservationDateTime.ToString("HH:mm") · @assigned.PartySize p.</div>
+                                <StatusBadge Label="@GetStatusLabel(assigned.Status)" Tone="@GetStatusTone(assigned.Status)" />
+                            </div>
+                            <button class="btn btn-outline-danger btn-sm w-100 mt-2"
+                                    type="button"
+                                    disabled="@_isBusy"
+                                    @onclick="() => UnassignTableAsync(assigned)">
+                                Tafel vrijmaken
+                            </button>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-0">Geen reservering toegewezen vandaag.</p>
+                        }
+                    </div>
+                }
+
+                <div class="floor-sidebar-header">
+                    <strong>Niet ingedeeld vandaag</strong>
+                    <span class="text-muted small">@UnassignedToday.Count() reserv.</span>
+                </div>
+
+                @if (!UnassignedToday.Any())
+                {
+                    <p class="floor-sidebar-empty text-muted small">Alle reserveringen zijn ingedeeld.</p>
+                }
+                else
+                {
+                    @foreach (var res in UnassignedToday.OrderBy(r => r.ReservationDateTime))
+                    {
+                        <div class="floor-sidebar-card"
+                             draggable="true"
+                             @ondragstart="args => OnReservationDragStart(args, res)">
+                            <div>
+                                <strong>@res.CustomerName</strong>
+                                <div class="text-muted small">@res.ReservationDateTime.ToString("HH:mm") · @res.PartySize p.</div>
+                                @if (!string.IsNullOrWhiteSpace(res.Note))
+                                {
+                                    <div class="text-muted small">@res.Note</div>
+                                }
+                            </div>
+                            <StatusBadge Label="@GetStatusLabel(res.Status)" Tone="@GetStatusTone(res.Status)" />
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    <div class="floor-mobile-picker">
+        <SectionCard Title="Tafels vandaag"
+                     Subtitle="Tik op een tafel om een reservering toe te wijzen.">
+            <div class="list-stack">
+                @foreach (var table in _tables.Where(t => t.IsActive).OrderBy(t => t.Section).ThenBy(t => t.Name))
+                {
+                    var occ = GetOccupancy(table.Id);
+                    var assigned = GetAssignedReservation(table.Id);
+                    <div class="list-row" @onclick="() => OpenMobilePicker(table)" style="cursor:pointer">
+                        <div>
+                            <strong>@table.Name</strong>
+                            @if (table.Section is not null)
+                            {
+                                <span class="text-muted small"> · @table.Section</span>
+                            }
+                            <div class="text-muted small">@table.Capacity p.</div>
+                            @if (assigned is not null)
+                            {
+                                <div class="text-muted small">@assigned.CustomerName · @assigned.ReservationDateTime.ToString("HH:mm")</div>
+                            }
+                        </div>
+                        <StatusBadge Label="@occ.Label" Tone="@occ.Tone" />
+                    </div>
+                }
+            </div>
+        </SectionCard>
+    </div>
+}
+
+@if (_mobilePickerTable is not null)
+{
+    <div class="floor-dialog-backdrop" @onclick="() => _mobilePickerTable = null">
+        <div class="floor-dialog" @onclick:stopPropagation="true">
+            <div class="floor-dialog-header">
+                <strong>Tafel @_mobilePickerTable.Name · @_mobilePickerTable.Capacity p.</strong>
+                <button class="btn btn-quiet btn-sm" type="button"
+                        @onclick="() => _mobilePickerTable = null">Sluiten</button>
+            </div>
+            @{
+                var assignedM = GetAssignedReservation(_mobilePickerTable.Id);
+            }
+            @if (assignedM is not null)
+            {
+                <div class="floor-dialog-current">
+                    <div class="text-muted small mb-1">Huidig toegewezen:</div>
+                    <strong>@assignedM.CustomerName</strong>
+                    <div class="text-muted small">@assignedM.ReservationDateTime.ToString("HH:mm") · @assignedM.PartySize p.</div>
+                    <button class="btn btn-outline-danger btn-sm mt-2"
+                            type="button"
+                            disabled="@_isBusy"
+                            @onclick="() => UnassignTableAsync(assignedM)">
+                        Tafel vrijmaken
+                    </button>
+                </div>
+            }
+            <div class="text-muted small mt-3 mb-1">Kies een reservering om toe te wijzen:</div>
+            @foreach (var res in UnassignedToday.OrderBy(r => r.ReservationDateTime))
+            {
+                <div class="floor-dialog-option" @onclick="() => AssignFromMobileAsync(_mobilePickerTable, res)">
+                    <strong>@res.CustomerName</strong>
+                    <div class="text-muted small">@res.ReservationDateTime.ToString("HH:mm") · @res.PartySize p.</div>
+                </div>
+            }
+            @if (!UnassignedToday.Any())
+            {
+                <p class="text-muted small">Geen niet-ingedeelde reserveringen voor vandaag.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<TableDto> _tables = [];
+    private List<ReservationDto> _reservations = [];
+    private bool _isLoading = true;
+    private bool _editMode;
+    private bool _isBusy;
+    private string? _errorMessage;
+    private string? _toastMessage;
+    private bool _toastIsWarning;
+
+    private Guid? _draggingReservationId;
+    private Guid? _draggingTableId;
+    private int _dragStartClientX;
+    private int _dragStartClientY;
+
+    private TableDto? _selectedTable;
+    private TableDto? _mobilePickerTable;
+
+    private CancellationTokenSource? _saveCts;
+
+    private IEnumerable<ReservationDto> UnassignedToday =>
+        _reservations.Where(r =>
+            DateOnly.FromDateTime(r.ReservationDateTime) == DateOnly.FromDateTime(DateTime.Now)
+            && r.TableId is null
+            && r.Status != ReservationStatus.Cancelled
+            && r.Status != ReservationStatus.NoShow);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var tablesTask = TableApi.GetAllAsync();
+            var reservationsTask = ReservationApi.GetCurrentRestaurantAsync();
+            await Task.WhenAll(tablesTask, reservationsTask);
+            _tables = (await tablesTask).ToList();
+            _reservations = (await reservationsTask).ToList();
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        _editMode = !_editMode;
+        _selectedTable = null;
+        _draggingReservationId = null;
+        _draggingTableId = null;
+    }
+
+    // ── Assignment drag: reservation card → table ──────────────────────────
+
+    private void OnReservationDragStart(DragEventArgs _, ReservationDto res)
+    {
+        _draggingReservationId = res.Id;
+        _draggingTableId = null;
+    }
+
+    private async Task OnDropOnTable(DragEventArgs _, TableDto table)
+    {
+        if (_editMode || _draggingReservationId is null) return;
+
+        var res = _reservations.FirstOrDefault(r => r.Id == _draggingReservationId.Value);
+        _draggingReservationId = null;
+        if (res is null) return;
+
+        if (res.PartySize > table.Capacity)
+        {
+            ShowToast(
+                $"{res.CustomerName} ({res.PartySize} p.) past niet aan tafel {table.Name} ({table.Capacity} p.).",
+                warning: true);
+            return;
+        }
+
+        var prevTableId = res.TableId;
+        UpdateReservation(res with { TableId = table.Id });
+
+        _isBusy = true;
+        try
+        {
+            await TableApi.AssignToReservationAsync(res.Id, table.Id);
+        }
+        catch (ApiClientException ex)
+        {
+            UpdateReservation(res with { TableId = prevTableId });
+            ShowToast(ex.Message, warning: false);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task UnassignTableAsync(ReservationDto res)
+    {
+        var prevTableId = res.TableId;
+        UpdateReservation(res with { TableId = null });
+        _selectedTable = null;
+        _mobilePickerTable = null;
+
+        _isBusy = true;
+        try
+        {
+            await TableApi.AssignToReservationAsync(res.Id, null);
+        }
+        catch (ApiClientException ex)
+        {
+            UpdateReservation(res with { TableId = prevTableId });
+            ShowToast(ex.Message, warning: false);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task AssignFromMobileAsync(TableDto table, ReservationDto res)
+    {
+        if (res.PartySize > table.Capacity)
+        {
+            ShowToast(
+                $"{res.CustomerName} ({res.PartySize} p.) past niet aan tafel {table.Name} ({table.Capacity} p.).",
+                warning: true);
+            return;
+        }
+
+        var prevTableId = res.TableId;
+        UpdateReservation(res with { TableId = table.Id });
+        _mobilePickerTable = null;
+
+        _isBusy = true;
+        try
+        {
+            await TableApi.AssignToReservationAsync(res.Id, table.Id);
+        }
+        catch (ApiClientException ex)
+        {
+            UpdateReservation(res with { TableId = prevTableId });
+            ShowToast(ex.Message, warning: false);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    // ── Edit mode drag: table → canvas ────────────────────────────────────
+
+    private void OnTableDragStart(DragEventArgs args, TableDto table)
+    {
+        if (!_editMode) return;
+        _draggingTableId = table.Id;
+        _draggingReservationId = null;
+        _dragStartClientX = (int)args.ClientX;
+        _dragStartClientY = (int)args.ClientY;
+    }
+
+    private async Task HandleCanvasDrop(DragEventArgs args)
+    {
+        if (!_editMode || _draggingTableId is null) return;
+
+        var tableId = _draggingTableId.Value;
+        _draggingTableId = null;
+
+        var index = _tables.FindIndex(t => t.Id == tableId);
+        if (index < 0) return;
+
+        var table = _tables[index];
+
+        // Delta from drag-start to drop; snap to 10 px grid
+        var rawX = table.PosX + (int)(args.ClientX - _dragStartClientX);
+        var rawY = table.PosY + (int)(args.ClientY - _dragStartClientY);
+        var snappedX = Math.Max(0, (rawX / 10) * 10);
+        var snappedY = Math.Max(0, (rawY / 10) * 10);
+
+        _tables[index] = table with { PosX = snappedX, PosY = snappedY };
+
+        // Debounce: cancel any pending save, wait 400 ms, then persist
+        _saveCts?.Cancel();
+        _saveCts = new CancellationTokenSource();
+        var ct = _saveCts.Token;
+
+        try
+        {
+            await Task.Delay(400, ct);
+            await TableApi.UpdateLayoutAsync(tableId,
+                new UpdateTableLayoutRequest(snappedX, snappedY, table.Rotation, table.Shape));
+        }
+        catch (OperationCanceledException) { /* superseded by a newer drop */ }
+        catch (ApiClientException ex)
+        {
+            ShowToast(ex.Message, warning: false);
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    private void SelectTable(TableDto table)
+    {
+        if (_editMode) return;
+        _selectedTable = _selectedTable?.Id == table.Id ? null : table;
+    }
+
+    private void OpenMobilePicker(TableDto table) => _mobilePickerTable = table;
+
+    private ReservationDto? GetAssignedReservation(Guid tableId) =>
+        _reservations.FirstOrDefault(r =>
+            r.TableId == tableId
+            && DateOnly.FromDateTime(r.ReservationDateTime) == DateOnly.FromDateTime(DateTime.Now)
+            && r.Status != ReservationStatus.Cancelled
+            && r.Status != ReservationStatus.NoShow);
+
+    private (string Label, StatusTone Tone, string CssClass) GetOccupancy(Guid tableId)
+    {
+        var now = DateTime.Now;
+        var today = DateOnly.FromDateTime(now);
+        var todayRes = _reservations.Where(r =>
+            r.TableId == tableId
+            && DateOnly.FromDateTime(r.ReservationDateTime) == today
+            && r.Status != ReservationStatus.Cancelled
+            && r.Status != ReservationStatus.NoShow).ToList();
+
+        foreach (var res in todayRes)
+        {
+            var start = res.ReservationDateTime;
+            var end = start.AddHours(2);
+            if (now >= start && now < end) return ("Bezet", StatusTone.Danger, "occupied");
+            if (start > now && (start - now).TotalMinutes <= 30) return ("Verwacht", StatusTone.Warning, "reserved");
+        }
+
+        return todayRes.Count > 0
+            ? ("Gereserveerd", StatusTone.Info, "reserved")
+            : ("Vrij", StatusTone.Neutral, "free");
+    }
+
+    private void UpdateReservation(ReservationDto updated)
+    {
+        var idx = _reservations.FindIndex(r => r.Id == updated.Id);
+        if (idx >= 0) _reservations[idx] = updated;
+    }
+
+    private void ShowToast(string message, bool warning)
+    {
+        _toastMessage = message;
+        _toastIsWarning = warning;
+        _ = ClearToastAsync();
+    }
+
+    private async Task ClearToastAsync()
+    {
+        await Task.Delay(4000);
+        _toastMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetStatusLabel(ReservationStatus status) => status switch
+    {
+        ReservationStatus.New => "Nieuw",
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        ReservationStatus.NoShow => "No-show",
+        _ => status.ToString()
+    };
+
+    private static StatusTone GetStatusTone(ReservationStatus status) => status switch
+    {
+        ReservationStatus.New => StatusTone.Warning,
+        ReservationStatus.Confirmed => StatusTone.Success,
+        ReservationStatus.Cancelled => StatusTone.Danger,
+        ReservationStatus.NoShow => StatusTone.Neutral,
+        _ => StatusTone.Neutral
+    };
+}

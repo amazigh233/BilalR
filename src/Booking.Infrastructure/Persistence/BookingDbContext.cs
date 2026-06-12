@@ -1,10 +1,13 @@
 using Booking.Application.Abstractions;
+using Booking.Domain.Accounting;
 using Booking.Domain.Customers;
 using Booking.Domain.Delivery;
+using Booking.Domain.GoogleBusiness;
 using Booking.Domain.Notifications;
 using Booking.Domain.Reservations;
 using Booking.Domain.Restaurants;
 using Booking.Domain.Scheduling;
+using Booking.Domain.Tables;
 using Booking.Infrastructure.Identity;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -32,6 +35,8 @@ public sealed class BookingDbContext : IdentityDbContext<ApplicationUser, Identi
 
     public DbSet<OpeningHour> OpeningHours => Set<OpeningHour>();
 
+    public DbSet<WidgetAllowedOrigin> WidgetAllowedOrigins => Set<WidgetAllowedOrigin>();
+
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
 
     public DbSet<Shift> Shifts => Set<Shift>();
@@ -43,6 +48,26 @@ public sealed class BookingDbContext : IdentityDbContext<ApplicationUser, Identi
     public DbSet<DeliveryOrder> DeliveryOrders => Set<DeliveryOrder>();
 
     public DbSet<DeliveryIntegration> DeliveryIntegrations => Set<DeliveryIntegration>();
+
+    public DbSet<AccountingCategory> AccountingCategories => Set<AccountingCategory>();
+
+    public DbSet<AccountingEntry> AccountingEntries => Set<AccountingEntry>();
+
+    public DbSet<AccountingSourceTransaction> AccountingSourceTransactions => Set<AccountingSourceTransaction>();
+
+    public DbSet<AccountingImportBatch> AccountingImportBatches => Set<AccountingImportBatch>();
+
+    public DbSet<AccountingConnection> AccountingConnections => Set<AccountingConnection>();
+
+    public DbSet<AccountingMatch> AccountingMatches => Set<AccountingMatch>();
+
+    public DbSet<AccountingAttachment> AccountingAttachments => Set<AccountingAttachment>();
+
+    public DbSet<Table> Tables => Set<Table>();
+
+    public DbSet<GoogleBusinessConnection> GoogleBusinessConnections => Set<GoogleBusinessConnection>();
+
+    public DbSet<GoogleReview> GoogleReviews => Set<GoogleReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,6 +94,26 @@ public sealed class BookingDbContext : IdentityDbContext<ApplicationUser, Identi
             .HasQueryFilter(order => order.RestaurantId == CurrentTenantId);
         modelBuilder.Entity<DeliveryIntegration>()
             .HasQueryFilter(integration => integration.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingCategory>()
+            .HasQueryFilter(category => category.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingEntry>()
+            .HasQueryFilter(entry => entry.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingSourceTransaction>()
+            .HasQueryFilter(transaction => transaction.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingImportBatch>()
+            .HasQueryFilter(batch => batch.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingConnection>()
+            .HasQueryFilter(connection => connection.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingMatch>()
+            .HasQueryFilter(match => match.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<AccountingAttachment>()
+            .HasQueryFilter(attachment => attachment.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<Table>()
+            .HasQueryFilter(table => table.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<GoogleBusinessConnection>()
+            .HasQueryFilter(c => c.RestaurantId == CurrentTenantId);
+        modelBuilder.Entity<GoogleReview>()
+            .HasQueryFilter(r => r.RestaurantId == CurrentTenantId);
     }
 
     private Guid? CurrentTenantId => _tenantProvider?.CurrentRestaurantId;

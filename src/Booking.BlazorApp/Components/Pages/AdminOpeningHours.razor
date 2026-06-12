@@ -7,14 +7,13 @@
 
 <PageTitle>Openingstijden</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Openingstijden</p>
-        <h1>@(_restaurant?.Name ?? "Restaurant")</h1>
-        <p class="text-muted mb-0">Bekijk en wijzig openingstijden per dag.</p>
-    </div>
-    <a class="btn btn-outline-secondary" href="/admin">Terug naar dashboard</a>
-</section>
+<PageHeader Eyebrow="Reserveringen"
+            Title="Openingstijden"
+            Description="@($"Bepaal wanneer gasten bij {(_restaurant?.Name ?? "je restaurant")} kunnen reserveren.")">
+    <Actions>
+        <a class="btn btn-quiet" href="/admin">Terug naar dashboard</a>
+    </Actions>
+</PageHeader>
 
 @if (!string.IsNullOrWhiteSpace(_successMessage))
 {
@@ -32,44 +31,55 @@
 }
 else if (!_loadFailed)
 {
-    <section class="content-section">
-        <div class="section-heading">
-            <h2>Weekinstelling</h2>
-        </div>
-
+    <SectionCard Title="Weekplanning"
+                 Subtitle="Schakel een dag in en stel de tijden in waarop reserveringen welkom zijn."
+                 CssClass="opening-hours-card">
         <EditForm Model="_rows" FormName="opening-hours" OnSubmit="SaveAsync">
             <div class="opening-hours-list">
                 @foreach (var row in _rows)
                 {
-                    <div class="opening-hour-row">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="@($"open-{row.Day}")" @bind="row.IsOpen" />
-                            <label class="form-check-label" for="@($"open-{row.Day}")">@GetDayName(row.Day)</label>
+                    <div class="opening-hour-row @(!row.IsOpen ? "is-closed" : null)">
+                        <div class="opening-day">
+                            <label class="schedule-toggle" for="@($"open-{row.Day}")">
+                                <input type="checkbox" id="@($"open-{row.Day}")" @bind="row.IsOpen" />
+                                <span class="schedule-toggle-track" aria-hidden="true"></span>
+                                <span class="schedule-toggle-copy">
+                                    <strong>@GetDayName(row.Day)</strong>
+                                    <small>@(row.IsOpen ? "Open voor reserveringen" : "Gesloten")</small>
+                                </span>
+                            </label>
                         </div>
                         <div class="time-fields">
-                            <input class="form-control"
-                                   type="time"
-                                   aria-label="Opent om"
-                                   value="@row.OpensAt"
-                                   @onchange="eventArgs => row.OpensAt = eventArgs.Value?.ToString() ?? string.Empty"
-                                   disabled="@(!row.IsOpen)" />
+                            <label>
+                                <span>Opent om</span>
+                                <input class="form-control"
+                                       type="time"
+                                       value="@row.OpensAt"
+                                       @onchange="eventArgs => row.OpensAt = eventArgs.Value?.ToString() ?? string.Empty"
+                                       disabled="@(!row.IsOpen)" />
+                            </label>
                             <span class="time-separator">tot</span>
-                            <input class="form-control"
-                                   type="time"
-                                   aria-label="Sluit om"
-                                   value="@row.ClosesAt"
-                                   @onchange="eventArgs => row.ClosesAt = eventArgs.Value?.ToString() ?? string.Empty"
-                                   disabled="@(!row.IsOpen)" />
+                            <label>
+                                <span>Sluit om</span>
+                                <input class="form-control"
+                                       type="time"
+                                       value="@row.ClosesAt"
+                                       @onchange="eventArgs => row.ClosesAt = eventArgs.Value?.ToString() ?? string.Empty"
+                                       disabled="@(!row.IsOpen)" />
+                            </label>
                         </div>
                     </div>
                 }
             </div>
 
-            <button class="btn btn-primary mt-3" type="submit" disabled="@_isSaving">
-                @(_isSaving ? "Opslaan..." : "Openingstijden opslaan")
-            </button>
+            <div class="schedule-save-bar">
+                <p>Wijzigingen worden pas actief nadat je ze hebt opgeslagen.</p>
+                <button class="btn btn-primary" type="submit" disabled="@_isSaving">
+                    @(_isSaving ? "Openingstijden opslaan..." : "Openingstijden opslaan")
+                </button>
+            </div>
         </EditForm>
-    </section>
+    </SectionCard>
 }
 
 @code {

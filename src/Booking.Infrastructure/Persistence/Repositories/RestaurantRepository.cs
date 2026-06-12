@@ -63,4 +63,30 @@ public sealed class RestaurantRepository(BookingDbContext dbContext) : IRestaura
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyCollection<WidgetAllowedOrigin>> GetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        CancellationToken cancellationToken = default)
+    {
+        return await dbContext.WidgetAllowedOrigins
+            .AsNoTracking()
+            .Where(origin => origin.RestaurantId == restaurantId)
+            .OrderBy(origin => origin.Origin)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task SetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        IReadOnlyCollection<WidgetAllowedOrigin> origins,
+        CancellationToken cancellationToken = default)
+    {
+        var existingOrigins = await dbContext.WidgetAllowedOrigins
+            .Where(origin => origin.RestaurantId == restaurantId)
+            .ToListAsync(cancellationToken);
+
+        dbContext.WidgetAllowedOrigins.RemoveRange(existingOrigins);
+        dbContext.WidgetAllowedOrigins.AddRange(origins);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

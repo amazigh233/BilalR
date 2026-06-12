@@ -1,5 +1,7 @@
 using Booking.Api.Contracts.Reservations;
+using Booking.Api.Contracts.Tables;
 using Booking.Application.Reservations;
+using Booking.Application.Tables;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -11,7 +13,8 @@ public sealed class ReservationsController(
     CreateReservationUseCase createReservationUseCase,
     GetReservationsUseCase getReservationsUseCase,
     GetReservationUseCase getReservationUseCase,
-    ChangeRestaurantReservationStatusUseCase changeRestaurantReservationStatusUseCase) : ApiControllerBase
+    ChangeRestaurantReservationStatusUseCase changeRestaurantReservationStatusUseCase,
+    AssignTableUseCase assignTableUseCase) : ApiControllerBase
 {
     [HttpPost]
     [AllowAnonymous]
@@ -222,6 +225,41 @@ public sealed class ReservationsController(
         }
     }
 
+    [HttpPatch("/api/admin/restaurant/reservations/{reservationId:guid}/table")]
+    [Authorize(Policy = "RestaurantOwner")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AssignTable(
+        Guid reservationId,
+        [FromBody] AssignTableApiRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(ToError("Request body is required."));
+        }
+
+        if (!TryGetCurrentRestaurantId(out var restaurantId))
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            await assignTableUseCase.ExecuteAsync(
+                new AssignTableRequest(restaurantId, reservationId, request.TableId),
+                cancellationToken);
+
+            return NoContent();
+        }
+        catch (Exception exception) when (
+            exception is ArgumentException or InvalidOperationException or KeyNotFoundException)
+        {
+            return HandleKnownException(exception);
+        }
+    }
+
     private static string? ValidateCreateRequest(CreateReservationApiRequest? request)
     {
         if (request is null)
@@ -275,6 +313,7 @@ public sealed class ReservationsController(
             response.PartySize,
             response.Note,
             response.Status,
-            response.CreatedAtUtc);
+            response.CreatedAtUtc,
+            response.TableId);
     }
 }

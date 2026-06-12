@@ -67,6 +67,12 @@ public sealed class Reservation
 
     public DateTime CreatedAtUtc { get; private set; }
 
+    public Guid? TableId { get; private set; }
+
+    public void AssignTable(Guid tableId) => TableId = tableId;
+
+    public void UnassignTable() => TableId = null;
+
     public void Confirm()
     {
         Status = ReservationStatus.Confirmed;

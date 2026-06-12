@@ -1,5 +1,5 @@
 using Booking.Api.Contracts.Delivery;
-using Booking.Application.Delivery;
+using Booking.Api.Delivery;
 using Booking.Domain.Delivery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,8 +9,7 @@ namespace Booking.Api.Controllers;
 
 [Route("api/delivery/webhook")]
 public sealed class DeliveryWebhookController(
-    ResolveDeliveryIntegrationUseCase resolveDeliveryIntegrationUseCase,
-    IngestDeliveryOrderUseCase ingestDeliveryOrderUseCase) : ApiControllerBase
+    DeliveryIngressService deliveryIngressService) : ApiControllerBase
 {
     private const string SecretHeaderName = "X-Webhook-Secret";
 
@@ -35,45 +34,19 @@ public sealed class DeliveryWebhookController(
             return BadRequest(ToError("Request body is required."));
         }
 
-        if (string.IsNullOrWhiteSpace(request.ExternalOrderId) ||
-            string.IsNullOrWhiteSpace(request.CustomerName))
-        {
-            return BadRequest(ToError("externalOrderId and customerName are required."));
-        }
-
         var secret = Request.Headers[SecretHeaderName].ToString();
-        var restaurantId = await resolveDeliveryIntegrationUseCase.ExecuteAsync(
-            new ResolveDeliveryIntegrationRequest(deliveryProvider, secret),
-            cancellationToken);
-
-        if (restaurantId is null)
-        {
-            return Unauthorized(ToError("Invalid or disabled webhook secret."));
-        }
-
-        var items = (request.Items ?? [])
-            .Select(item => new IngestDeliveryOrderLine(item.Name, item.Quantity, item.UnitPrice))
-            .ToList();
 
         try
         {
-            await ingestDeliveryOrderUseCase.ExecuteAsync(
-                new IngestDeliveryOrderRequest(
-                    restaurantId.Value,
-                    deliveryProvider,
-                    request.ExternalOrderId,
-                    request.CustomerName,
-                    request.CustomerPhone,
-                    request.DeliveryAddress,
-                    request.Note,
-                    request.Status,
-                    request.TotalAmount,
-                    request.Currency,
-                    request.PlacedAtUtc,
-                    items),
+            var result = await deliveryIngressService.ReceiveAsync(
+                deliveryProvider,
+                secret,
+                request,
                 cancellationToken);
 
-            return Accepted();
+            return result == DeliveryIngressResult.Accepted
+                ? Accepted()
+                : Unauthorized(ToError("Invalid or disabled webhook secret."));
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {

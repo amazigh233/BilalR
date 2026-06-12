@@ -22,6 +22,22 @@ public sealed class RestaurantConfiguration : IEntityTypeConfiguration<Restauran
         builder.Property(restaurant => restaurant.Email)
             .HasMaxLength(320);
 
+        builder.Property(restaurant => restaurant.WidgetPrimaryColor)
+            .HasMaxLength(7)
+            .HasDefaultValue(Restaurant.DefaultWidgetPrimaryColor)
+            .IsRequired();
+
+        builder.Property(restaurant => restaurant.WidgetAccentColor)
+            .HasMaxLength(7)
+            .HasDefaultValue(Restaurant.DefaultWidgetAccentColor)
+            .IsRequired();
+
+        builder.Property(restaurant => restaurant.WidgetWelcomeText)
+            .HasMaxLength(240);
+
+        builder.Property(restaurant => restaurant.WidgetLogoUrl)
+            .HasMaxLength(500);
+
         builder.HasMany(restaurant => restaurant.OpeningHours)
             .WithOne()
             .HasForeignKey("RestaurantId")

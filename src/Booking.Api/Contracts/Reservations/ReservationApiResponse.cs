@@ -13,4 +13,5 @@ public sealed record ReservationApiResponse(
     int PartySize,
     string? Note,
     ReservationStatus Status,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    Guid? TableId);

@@ -127,6 +127,37 @@ public sealed class DeliveryWebhookTests
         Assert.Empty(ordersB!);
     }
 
+    [Theory]
+    [InlineData("api/delivery/thuisbezorgd/jet-connect/orders", "X-JET-Connect-Secret", "JET-1001")]
+    [InlineData("api/delivery/thuisbezorgd/t-connect/orders", "X-Zambiq-Connector-Secret", "TC-1001")]
+    public async Task ThuisbezorgdIngressRoutes_CreateOrder(
+        string route,
+        string secretHeader,
+        string externalOrderId)
+    {
+        await using var factory = new BookingApiFactory();
+        await factory.ResetDatabaseAsync();
+        var client = factory.CreateClient();
+
+        var owner = await factory.SeedUserAsync(BookingRoles.Owner);
+        await AuthenticateAsync(client, factory, owner.User.Email);
+        var secret = await ConnectAsync(client, "Thuisbezorgd");
+
+        using var anonymous = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = JsonContent.Create(NewWebhookOrder(externalOrderId))
+        };
+        request.Headers.Add(secretHeader, secret);
+
+        using var response = await anonymous.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        var orders = await client.GetFromJsonAsync<IReadOnlyCollection<DeliveryOrderApiResponse>>(
+            "api/admin/restaurant/delivery-orders", JsonOptions);
+        Assert.Contains(orders!, order => order.ExternalOrderId == externalOrderId);
+    }
+
     [Fact]
     public async Task Staff_CanViewOrders_ButCannotConnect()
     {
@@ -152,6 +183,11 @@ public sealed class DeliveryWebhookTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var connected = await response.Content.ReadFromJsonAsync<ConnectDeliveryApiResponse>(JsonOptions);
         Assert.NotNull(connected);
+        if (provider == "Thuisbezorgd")
+        {
+            Assert.NotNull(connected!.JetConnectOrderUrl);
+            Assert.NotNull(connected.TConnectOrderUrl);
+        }
         return connected!.Secret;
     }
 

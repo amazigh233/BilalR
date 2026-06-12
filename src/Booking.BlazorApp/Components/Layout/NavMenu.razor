@@ -1,99 +1,204 @@
 <div class="brand-row">
-    <div class="brand-mark">Z</div>
-    <div>
-        <a class="navbar-brand" href="">Zambiq</a>
-        <div class="brand-subtitle">Booking Platform</div>
+    <div class="brand-mark">Z<span aria-hidden="true"></span></div>
+    <div class="brand-copy">
+        <a class="navbar-brand" href="/admin">Zambiq</a>
+        <div class="brand-subtitle">Service operating system</div>
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<input type="checkbox" title="Navigatiemenu openen" aria-label="Navigatiemenu openen" class="navbar-toggler" />
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+<div class="nav-scrollable" onclick="if (event.target.closest('a')) document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-section-label">Menu</div>
-        <div class="nav-item">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="nav-icon nav-icon-home" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
         <AuthorizeView>
             <Authorized Context="authState">
                 <AuthorizeView Roles="Owner,Staff">
+                    <div class="nav-section-label">Werkdag</div>
                     <div class="nav-item">
-                        <NavLink class="nav-link" href="admin">
-                            <span class="nav-icon nav-icon-dashboard" aria-hidden="true"></span> Dashboard
+                        <NavLink class="nav-link" href="admin" Match="NavLinkMatch.All">
+                            <span class="nav-icon nav-icon-home" aria-hidden="true"></span> Home
                         </NavLink>
                     </div>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="Owner,Staff">
                     <div class="nav-item">
                         <NavLink class="nav-link" href="admin/reservations">
                             <span class="nav-icon nav-icon-calendar" aria-hidden="true"></span> Reserveringen
                         </NavLink>
                     </div>
                     <div class="nav-item">
-                        <NavLink class="nav-link" href="mijn-rooster">
-                            <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Mijn rooster
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="mijn-beschikbaarheid">
-                            <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Mijn beschikbaarheid
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="mijn-verlof">
-                            <span class="nav-icon nav-icon-calendar" aria-hidden="true"></span> Mijn verlof
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
                         <NavLink class="nav-link" href="admin/bezorgorders">
-                            <span class="nav-icon nav-icon-store" aria-hidden="true"></span> Bezorgorders
+                            <span class="nav-icon nav-icon-orders" aria-hidden="true"></span> Bezorgorders
                         </NavLink>
                     </div>
                 </AuthorizeView>
 
+                <AuthorizeView Roles="Staff">
+                    @if (TryGetRestaurantId(authState.User, out var staffRestaurantId))
+                    {
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="@($"booking/{staffRestaurantId}")">
+                                <span class="nav-icon nav-icon-link" aria-hidden="true"></span> Publieke pagina
+                            </NavLink>
+                        </div>
+                    }
+                </AuthorizeView>
+
                 <AuthorizeView Roles="Owner">
-                    <div class="nav-section-label">Restaurant</div>
                     <div class="nav-item">
                         <NavLink class="nav-link" href="admin/analytics">
-                            <span class="nav-icon nav-icon-dashboard" aria-hidden="true"></span> Inzichten
+                            <span class="nav-icon nav-icon-analytics" aria-hidden="true"></span> Inzichten
                         </NavLink>
                     </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/schedule">
-                            <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Rooster
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/availability">
-                            <span class="nav-icon nav-icon-users" aria-hidden="true"></span> Beschikbaarheid
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/leave">
-                            <span class="nav-icon nav-icon-calendar" aria-hidden="true"></span> Verlof
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/bezorging">
-                            <span class="nav-icon nav-icon-store" aria-hidden="true"></span> Bezorging
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/restaurant">
-                            <span class="nav-icon nav-icon-store" aria-hidden="true"></span> Restaurant
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/opening-hours">
-                            <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Openingstijden
-                        </NavLink>
-                    </div>
-                    <div class="nav-item">
-                        <NavLink class="nav-link" href="admin/staff">
-                            <span class="nav-icon nav-icon-users" aria-hidden="true"></span> Medewerkers
-                        </NavLink>
-                    </div>
+
+                    <div class="nav-section-label">Beheer</div>
+                    <details class="nav-group" open="@IsSectionActive("admin/opening-hours", "admin/widget", "admin/tafels", "booking/")">
+                        <summary>
+                            <span>Reserveringsbeheer</span>
+                            <span class="nav-group-count">5</span>
+                        </summary>
+                        <div class="nav-group-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/opening-hours">
+                                    <span class="nav-icon nav-icon-clock" aria-hidden="true"></span> Openingstijden
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/tafels" Match="NavLinkMatch.All">
+                                    <span class="nav-icon nav-icon-table" aria-hidden="true"></span> Tafels
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/tafels/plattegrond">
+                                    <span class="nav-icon nav-icon-table" aria-hidden="true"></span> Plattegrond
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/widget">
+                                    <span class="nav-icon nav-icon-widget" aria-hidden="true"></span> Booking widget
+                                </NavLink>
+                            </div>
+                            @if (TryGetRestaurantId(authState.User, out var restaurantId))
+                            {
+                                <div class="nav-item">
+                                    <NavLink class="nav-link" href="@($"booking/{restaurantId}")">
+                                        <span class="nav-icon nav-icon-link" aria-hidden="true"></span> Publieke pagina
+                                    </NavLink>
+                                </div>
+                            }
+                        </div>
+                    </details>
+
+                    <details class="nav-group" open="@IsSectionActive("admin/staff", "admin/schedule", "admin/availability", "admin/leave")">
+                        <summary>
+                            <span>Team</span>
+                            <span class="nav-group-count">4</span>
+                        </summary>
+                        <div class="nav-group-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/staff">
+                                    <span class="nav-icon nav-icon-users" aria-hidden="true"></span> Medewerkers
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/schedule">
+                                    <span class="nav-icon nav-icon-schedule" aria-hidden="true"></span> Rooster
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/availability">
+                                    <span class="nav-icon nav-icon-availability" aria-hidden="true"></span> Beschikbaarheid
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/leave">
+                                    <span class="nav-icon nav-icon-leave" aria-hidden="true"></span> Verlof
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="Owner,Staff">
+                    <details class="nav-group" open="@IsSectionActive("mijn-rooster", "mijn-beschikbaarheid", "mijn-verlof")">
+                        <summary>
+                            <span>Mijn werk</span>
+                            <span class="nav-group-count">3</span>
+                        </summary>
+                        <div class="nav-group-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="mijn-rooster">
+                                    <span class="nav-icon nav-icon-schedule" aria-hidden="true"></span> Mijn rooster
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="mijn-beschikbaarheid">
+                                    <span class="nav-icon nav-icon-availability" aria-hidden="true"></span> Mijn beschikbaarheid
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="mijn-verlof">
+                                    <span class="nav-icon nav-icon-leave" aria-hidden="true"></span> Mijn verlof
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="Owner">
+                    <details class="nav-group" open="@IsSectionActive("admin/boekhouding")">
+                        <summary>
+                            <span>Boekhouding</span>
+                            <span class="nav-group-count">4</span>
+                        </summary>
+                        <div class="nav-group-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/boekhouding" Match="NavLinkMatch.All">
+                                    <span class="nav-icon nav-icon-analytics" aria-hidden="true"></span> Overzicht
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/boekhouding/inbox">
+                                    <span class="nav-icon nav-icon-orders" aria-hidden="true"></span> Controle-inbox
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/boekhouding/boekingen">
+                                    <span class="nav-icon nav-icon-calendar" aria-hidden="true"></span> Boekingen
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/boekhouding/importeren">
+                                    <span class="nav-icon nav-icon-integrations" aria-hidden="true"></span> Importeren
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="nav-group" open="@IsSectionActive("admin/bezorging", "admin/restaurant", "admin/google-business")">
+                        <summary>
+                            <span>Instellingen</span>
+                            <span class="nav-group-count">3</span>
+                        </summary>
+                        <div class="nav-group-items">
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/bezorging">
+                                    <span class="nav-icon nav-icon-integrations" aria-hidden="true"></span> Bezorgintegraties
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/google-business" Match="NavLinkMatch.All">
+                                    <span class="nav-icon nav-icon-integrations" aria-hidden="true"></span> Google Business
+                                </NavLink>
+                            </div>
+                            <div class="nav-item">
+                                <NavLink class="nav-link" href="admin/restaurant">
+                                    <span class="nav-icon nav-icon-store" aria-hidden="true"></span> Restaurant
+                                </NavLink>
+                            </div>
+                        </div>
+                    </details>
                 </AuthorizeView>
 
                 <AuthorizeView Roles="SuperAdmin">
@@ -104,20 +209,14 @@
                         </NavLink>
                     </div>
                 </AuthorizeView>
-
-                <AuthorizeView Roles="Owner,Staff">
-                    @if (TryGetRestaurantId(authState.User, out var restaurantId))
-                    {
-                        <div class="nav-section-label">Publiek</div>
-                        <div class="nav-item">
-                            <NavLink class="nav-link" href="@($"booking/{restaurantId}")">
-                                <span class="nav-icon nav-icon-link" aria-hidden="true"></span> Publieke pagina
-                            </NavLink>
-                        </div>
-                    }
-                </AuthorizeView>
             </Authorized>
             <NotAuthorized>
+                <div class="nav-section-label">Start</div>
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                        <span class="nav-icon nav-icon-home" aria-hidden="true"></span> Zambiq
+                    </NavLink>
+                </div>
                 <div class="nav-item">
                     <NavLink class="nav-link" href="login">
                         <span class="nav-icon nav-icon-login" aria-hidden="true"></span> Inloggen
@@ -126,9 +225,27 @@
             </NotAuthorized>
         </AuthorizeView>
     </nav>
+    <div class="nav-footer">
+        <span class="nav-footer-signal" aria-hidden="true"></span>
+        <span>
+            <strong>Service mode</strong>
+            <small>Alle systemen operationeel</small>
+        </span>
+    </div>
 </div>
 
 @code {
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
+    private bool IsSectionActive(params string[] routePrefixes)
+    {
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri).TrimEnd('/');
+        return routePrefixes.Any(prefix =>
+            relativePath.Equals(prefix.TrimEnd('/'), StringComparison.OrdinalIgnoreCase) ||
+            relativePath.StartsWith($"{prefix.TrimEnd('/')}/", StringComparison.OrdinalIgnoreCase));
+    }
+
     private static bool TryGetRestaurantId(ClaimsPrincipal user, out Guid restaurantId)
     {
         var value = user.FindFirst(BookingAuthClaimTypes.RestaurantId)?.Value;

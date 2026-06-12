@@ -1,19 +1,26 @@
 @page "/admin"
 @attribute [Authorize(Roles = "Owner,Staff")]
 @rendermode InteractiveServer
+@using System.Globalization
+@using System.Security.Claims
 @inject RestaurantApiClient RestaurantApi
 @inject ReservationApiClient ReservationApi
+@inject TableApiClient TableApi
+@inject DeliveryApiClient DeliveryApi
+@inject ShiftApiClient ShiftApi
+@inject StaffApiClient StaffApi
+@inject AccountingApiClient AccountingApi
+@inject AuthenticationStateProvider AuthState
 
-<PageTitle>Admin dashboard</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Beheer</p>
-        <h1>@(_restaurant?.Name ?? "Dashboard")</h1>
-        <p class="text-muted mb-0">Reserveringen en instellingen voor je eigen restaurant.</p>
-    </div>
-    <a class="btn btn-primary" href="/admin/reservations">Reserveringen</a>
-</section>
+<PageHeader Eyebrow="Dashboard"
+            Title="@(_restaurant is null ? "Welkom bij Zambiq" : $"Welkom bij {_restaurant.Name}")"
+            Description="Alles wat vandaag aandacht nodig heeft, overzichtelijk op één plek.">
+    <Actions>
+        <a class="btn btn-primary" href="/admin/reservations">Reserveringen bekijken</a>
+    </Actions>
+</PageHeader>
 
 @if (_isLoading)
 {
@@ -25,92 +32,311 @@ else if (!string.IsNullOrWhiteSpace(_errorMessage))
 }
 else if (_restaurant is not null)
 {
-    <div class="stats-grid">
-        <div class="stat-card">
-            <span class="stat-label">Restaurant</span>
-            <strong>@_restaurant.Name</strong>
-            <span class="text-muted small">Actieve beheeromgeving</span>
-        </div>
-        <a class="stat-card stat-link" href="/admin/reservations">
-            <span class="stat-label">Reserveringen</span>
-            <strong>@_reservations.Count</strong>
-            <span class="text-muted small">@_reservations.Count(reservation => reservation.Status == ReservationStatus.New) nieuw</span>
-        </a>
-        <AuthorizeView Roles="Owner">
-            <a class="stat-card stat-link" href="/admin/opening-hours">
-                <span class="stat-label">Actie</span>
-                <strong>Openingstijden</strong>
-                <span class="text-muted small">Weekplanning beheren</span>
-            </a>
-            <a class="stat-card stat-link" href="/admin/staff">
-                <span class="stat-label">Team</span>
-                <strong>Medewerkers</strong>
-                <span class="text-muted small">Toegang beheren</span>
-            </a>
-        </AuthorizeView>
+    <div class="stats-grid dashboard-stats">
+        <StatCard Label="Nieuwe reserveringen"
+                  Value="@NewReservations.ToString()"
+                  SupportingText="Wachten op opvolging"
+                  Href="/admin/reservations"
+                  CssClass="stat-card-accent" />
+        <StatCard Label="Reserveringen vandaag"
+                  Value="@TodaysReservations.ToString()"
+                  SupportingText="@TodaysGuestsText"
+                  Href="/admin/reservations" />
+        <StatCard Label="Bevestigd"
+                  Value="@ConfirmedReservations.ToString()"
+                  SupportingText="In het huidige overzicht"
+                  Href="/admin/reservations" />
+        <StatCard Label="Totaal"
+                  Value="@_reservations.Count.ToString()"
+                  SupportingText="Alle geladen reserveringen"
+                  Href="/admin/reservations" />
+        @if (_isOwner)
+        {
+            <StatCard Label="Bezorgorders vandaag"
+                      Value="@_deliveryOrdersToday.Count.ToString()"
+                      SupportingText="@DeliveryOrdersTodayTotal"
+                      Href="/admin/bezorgorders" />
+            <StatCard Label="Dag-omzet"
+                      Value="@TodayRevenueFormatted"
+                      SupportingText="Bevestigde omzet vandaag"
+                      Href="/admin/boekhouding" />
+            @if (_reviewItemCount > 0)
+            {
+                <StatCard Label="Controle-inbox"
+                          Value="@_reviewItemCount.ToString()"
+                          SupportingText="Wachten op beoordeling"
+                          Href="/admin/boekhouding/inbox"
+                          CssClass="stat-card-accent" />
+            }
+        }
     </div>
 
-    <section class="content-section">
-        <div class="section-heading">
-            <h2>Laatste reserveringen</h2>
-        </div>
+    <SectionCard Title="Snelle acties"
+                 Subtitle="Ga direct naar de onderdelen die je het vaakst gebruikt."
+                 CssClass="dashboard-actions-card"
+                 BodyCssClass="quick-action-grid">
+        <QuickActionCard Icon="icon-calendar"
+                         Title="Reserveringen bekijken"
+                         Description="Bekijk gasten en werk statussen bij."
+                         Href="/admin/reservations" />
+        <AuthorizeView Roles="Owner">
+            <QuickActionCard Icon="icon-clock"
+                             Title="Openingstijden aanpassen"
+                             Description="Werk de planning voor deze week bij."
+                             Href="/admin/opening-hours" />
+            <QuickActionCard Icon="icon-users"
+                             Title="Medewerker toevoegen"
+                             Description="Geef een nieuw teamlid toegang."
+                             Href="/admin/staff" />
+            <QuickActionCard Icon="icon-link"
+                             Title="Publieke pagina openen"
+                             Description="Bekijk de reserveringservaring van gasten."
+                             Href="@($"/booking/{_restaurant.Id}")" />
+            <QuickActionCard Icon="icon-link"
+                             Title="Widget installeren"
+                             Description="Plaats reserveren op je eigen website."
+                             Href="/admin/widget" />
+        </AuthorizeView>
+    </SectionCard>
 
-        @if (_reservations.Count == 0)
-        {
-            <p class="empty-state"><strong>Nog geen reserveringen</strong>Nieuwe boekingen verschijnen hier zodra gasten reserveren.</p>
-        }
-        else
-        {
-            <div class="list-stack">
-                @foreach (var reservation in _reservations
-                    .OrderByDescending(reservation => reservation.ReservationDateTime)
-                    .Take(5))
-                {
-                    <div class="list-row">
-                        <div>
-                            <strong>@reservation.CustomerName</strong>
-                            <div class="text-muted small">@reservation.ReservationDateTime.ToString("dd-MM-yyyy HH:mm")</div>
+    @if (_isOwner && _shiftsToday.Count > 0)
+    {
+        <SectionCard Title="Vandaag ingepland"
+                     Subtitle="@($"{_shiftsToday.Count} {(_shiftsToday.Count == 1 ? "medewerker" : "medewerkers")} hebben vandaag een dienst.")"
+                     CssClass="dashboard-overview-card">
+            <Actions>
+                <a class="btn btn-quiet btn-sm" href="/admin/schedule">Rooster bekijken</a>
+            </Actions>
+            <ChildContent>
+                <div class="list-stack">
+                    @foreach (var shift in StaffOnDutyToday.OrderBy(s => s.Start))
+                    {
+                        <div class="list-row">
+                            <div>
+                                <strong>@shift.Name</strong>
+                                @if (!string.IsNullOrWhiteSpace(shift.Note))
+                                {
+                                    <div class="text-muted small">@shift.Note</div>
+                                }
+                            </div>
+                            <div class="text-muted small">
+                                @shift.Start.ToString("HH:mm")–@shift.End.ToString("HH:mm")
+                            </div>
                         </div>
-                        <span class="status-pill @GetStatusBadgeClass(reservation.Status)">@reservation.Status</span>
-                    </div>
-                }
-            </div>
-        }
-    </section>
+                    }
+                </div>
+            </ChildContent>
+        </SectionCard>
+    }
+
+    @if (_isOwner && _tables.Count > 0)
+    {
+        <SectionCard Title="Tafelbezetting"
+                     Subtitle="Huidige status per tafel op basis van de reserveringen van vandaag."
+                     CssClass="dashboard-overview-card">
+            <Actions>
+                <a class="btn btn-quiet btn-sm" href="/admin/tafels">Tafels beheren</a>
+            </Actions>
+            <ChildContent>
+                <div class="table-occupancy-grid">
+                    @foreach (var table in _tables.Where(t => t.IsActive).OrderBy(t => t.Section).ThenBy(t => t.Name))
+                    {
+                        var occupancy = GetTableOccupancy(table.Id);
+                        <div class="table-occupancy-card">
+                            <div class="table-occupancy-name">@table.Name</div>
+                            @if (table.Section is not null)
+                            {
+                                <div class="table-occupancy-section">@table.Section</div>
+                            }
+                            <div class="table-occupancy-cap">@table.Capacity p.</div>
+                            <StatusBadge Label="@occupancy.Label" Tone="@occupancy.Tone" />
+                        </div>
+                    }
+                </div>
+            </ChildContent>
+        </SectionCard>
+    }
+
+    <SectionCard Title="Laatste reserveringen"
+                 Subtitle="De vijf meest recent geplaatste reserveringen."
+                 CssClass="dashboard-overview-card">
+        <Actions>
+            <a class="btn btn-quiet btn-sm" href="/admin/reservations">Volledig overzicht</a>
+        </Actions>
+        <ChildContent>
+            @if (_reservations.Count == 0)
+            {
+                <EmptyState Icon="icon-calendar"
+                            Title="Nog geen reserveringen"
+                            Description="Nieuwe boekingen verschijnen hier zodra gasten reserveren.">
+                    <Action>
+                        <a class="btn btn-outline-secondary btn-sm" href="@($"/booking/{_restaurant.Id}")">Publieke pagina openen</a>
+                    </Action>
+                </EmptyState>
+            }
+            else
+            {
+                <div class="reservation-summary-list">
+                    @foreach (var reservation in _reservations
+                        .OrderByDescending(reservation => reservation.ReservationDateTime)
+                        .Take(5))
+                    {
+                        <div class="reservation-summary-row">
+                            <div class="reservation-date-tile">
+                                <strong>@reservation.ReservationDateTime.ToString("dd")</strong>
+                                <span>@reservation.ReservationDateTime.ToString("MMM")</span>
+                            </div>
+                            <div class="reservation-summary-main">
+                                <strong>@reservation.CustomerName</strong>
+                                <span>@reservation.ReservationDateTime.ToString("HH:mm") · @reservation.PartySize personen</span>
+                            </div>
+                            <StatusBadge Label="@GetStatusLabel(reservation.Status)" Tone="@GetStatusTone(reservation.Status)" />
+                        </div>
+                    }
+                </div>
+            }
+        </ChildContent>
+    </SectionCard>
 }
 
 @code {
+    private static readonly CultureInfo NlNl = CultureInfo.GetCultureInfo("nl-NL");
+
     private RestaurantDto? _restaurant;
     private List<ReservationDto> _reservations = [];
+    private List<TableDto> _tables = [];
+    private List<DeliveryOrderDto> _deliveryOrdersToday = [];
+    private List<ShiftDto> _shiftsToday = [];
+    private List<StaffUserDto> _staffList = [];
+    private decimal _todayRevenue;
+    private int _reviewItemCount;
     private bool _isLoading = true;
+    private bool _isOwner;
     private string? _errorMessage;
+
+    private int NewReservations => _reservations.Count(r => r.Status == ReservationStatus.New);
+    private int ConfirmedReservations => _reservations.Count(r => r.Status == ReservationStatus.Confirmed);
+    private int TodaysReservations => _reservations.Count(r =>
+        DateOnly.FromDateTime(r.ReservationDateTime) == DateOnly.FromDateTime(DateTime.Now));
+
+    private string TodaysGuestsText
+    {
+        get
+        {
+            var guests = _reservations
+                .Where(r => DateOnly.FromDateTime(r.ReservationDateTime) == DateOnly.FromDateTime(DateTime.Now))
+                .Sum(r => r.PartySize);
+            return guests == 1 ? "1 gast verwacht" : $"{guests} gasten verwacht";
+        }
+    }
+
+    private string DeliveryOrdersTodayTotal =>
+        _deliveryOrdersToday.Sum(o => o.TotalAmount).ToString("C", NlNl);
+
+    private string TodayRevenueFormatted => _todayRevenue.ToString("C", NlNl);
+
+    private IEnumerable<(string Name, TimeOnly Start, TimeOnly End, string? Note)> StaffOnDutyToday =>
+        _shiftsToday.Select(s => (
+            _staffList.FirstOrDefault(st => st.UserId == s.StaffUserId)?.Name ?? "—",
+            s.StartTime,
+            s.EndTime,
+            s.Note
+        ));
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await AuthState.GetAuthenticationStateAsync();
+        _isOwner = authState.User.IsInRole("Owner");
+
         try
         {
-            _restaurant = await RestaurantApi.GetCurrentAsync();
-            _reservations = (await ReservationApi.GetCurrentRestaurantAsync()).ToList();
+            var restaurantTask = RestaurantApi.GetCurrentAsync();
+            var reservationsTask = ReservationApi.GetCurrentRestaurantAsync();
+            var tablesTask = _isOwner ? TableApi.GetAllAsync() : Task.FromResult<IReadOnlyList<TableDto>>([]);
+
+            await Task.WhenAll(restaurantTask, reservationsTask, tablesTask);
+
+            _restaurant = await restaurantTask;
+            _reservations = (await reservationsTask).ToList();
+            _tables = (await tablesTask).ToList();
         }
         catch (ApiClientException exception)
         {
             _errorMessage = exception.Message;
         }
-        finally
+
+        if (_isOwner)
         {
-            _isLoading = false;
+            var today = DateOnly.FromDateTime(DateTime.Now);
+
+            try
+            {
+                var deliveryTask = DeliveryApi.GetOrdersAsync();
+                var shiftsTask = ShiftApi.GetForRestaurantAsync(today, today);
+                var staffTask = StaffApi.GetAllAsync();
+                var accountingTask = AccountingApi.GetSummaryAsync(today, today);
+
+                await Task.WhenAll(deliveryTask, shiftsTask, staffTask, accountingTask);
+
+                _deliveryOrdersToday = (await deliveryTask)
+                    .Where(o => o.PlacedAtUtc.ToLocalTime().Date == DateTime.Today)
+                    .ToList();
+                _shiftsToday = (await shiftsTask).ToList();
+                _staffList = (await staffTask).ToList();
+
+                var summary = await accountingTask;
+                _todayRevenue = summary.Revenue;
+                _reviewItemCount = summary.OpenReviewItems;
+            }
+            catch (ApiClientException)
+            {
+                // Widgets tonen 0 bij fout — geen pagina-brede melding
+            }
         }
+
+        _isLoading = false;
     }
 
-    private static string GetStatusBadgeClass(ReservationStatus status)
+    private (string Label, StatusTone Tone) GetTableOccupancy(Guid tableId)
     {
-        return status switch
+        var now = DateTime.Now;
+        var today = DateOnly.FromDateTime(now);
+        var todayReservations = _reservations
+            .Where(r => DateOnly.FromDateTime(r.ReservationDateTime) == today
+                && r.TableId == tableId
+                && r.Status != ReservationStatus.Cancelled
+                && r.Status != ReservationStatus.NoShow);
+
+        foreach (var res in todayReservations)
         {
-            ReservationStatus.New => "status-new",
-            ReservationStatus.Confirmed => "status-confirmed",
-            ReservationStatus.Cancelled => "status-cancelled",
-            ReservationStatus.NoShow => "status-noshow",
-            _ => string.Empty
-        };
+            var start = res.ReservationDateTime;
+            var end = start.AddHours(2);
+
+            if (now >= start && now < end)
+                return ("Bezet", StatusTone.Danger);
+
+            if (start > now && (start - now).TotalMinutes <= 30)
+                return ("Aankomst", StatusTone.Warning);
+        }
+
+        return ("Vrij", StatusTone.Neutral);
     }
+
+    private static string GetStatusLabel(ReservationStatus status) => status switch
+    {
+        ReservationStatus.New => "Nieuw",
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        ReservationStatus.NoShow => "No-show",
+        _ => status.ToString()
+    };
+
+    private static StatusTone GetStatusTone(ReservationStatus status) => status switch
+    {
+        ReservationStatus.New => StatusTone.Warning,
+        ReservationStatus.Confirmed => StatusTone.Success,
+        ReservationStatus.Cancelled => StatusTone.Danger,
+        ReservationStatus.NoShow => StatusTone.Neutral,
+        _ => StatusTone.Neutral
+    };
 }

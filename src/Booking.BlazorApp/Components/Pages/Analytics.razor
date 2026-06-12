@@ -6,15 +6,11 @@
 
 <PageTitle>Inzichten</PageTitle>
 
-<section class="page-header">
-    <div>
-        <p class="eyebrow">Beheer</p>
-        <h1>Inzichten</h1>
-        <p class="text-muted mb-0">Reserveringen, no-shows en drukke tijden voor je restaurant.</p>
-    </div>
-</section>
+<PageHeader Eyebrow="Beheer"
+            Title="Inzichten"
+            Description="Reserveringen, no-shows en drukke tijden voor je restaurant." />
 
-<div class="analytics-filters">
+<SectionCard CssClass="analytics-filter-card" BodyCssClass="analytics-filters">
     <div class="form-field">
         <label for="from-date">Van</label>
         <input id="from-date" type="date" class="form-control"
@@ -27,7 +23,7 @@
                value="@_to.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)"
                @onchange="OnToChanged" />
     </div>
-</div>
+</SectionCard>
 
 @if (_isLoading)
 {
@@ -41,39 +37,37 @@ else if (_analytics is not null)
 {
     <div class="stats-grid">
         <div class="stat-card">
-            <span class="stat-label">Reserveringen</span>
+            <span class="stat-card-label">Reserveringen</span>
             <strong>@_analytics.TotalReservations</strong>
-            <span class="text-muted small">@_analytics.NewCount nieuw · @_analytics.ConfirmedCount bevestigd</span>
+            <span class="stat-card-support">@_analytics.NewCount nieuw · @_analytics.ConfirmedCount bevestigd</span>
         </div>
         <div class="stat-card">
-            <span class="stat-label">No-shows</span>
+            <span class="stat-card-label">No-shows</span>
             <strong>@_analytics.NoShowCount</strong>
-            <span class="text-muted small">@FormatPercent(_analytics.NoShowRate) van totaal</span>
+            <span class="stat-card-support">@FormatPercent(_analytics.NoShowRate) van totaal</span>
         </div>
         <div class="stat-card">
-            <span class="stat-label">Gasten</span>
+            <span class="stat-card-label">Gasten</span>
             <strong>@_analytics.TotalGuests</strong>
-            <span class="text-muted small">gem. @_analytics.AveragePartySize.ToString("0.0", CultureInfo.InvariantCulture) per reservering</span>
+            <span class="stat-card-support">gem. @_analytics.AveragePartySize.ToString("0.0", CultureInfo.InvariantCulture) per reservering</span>
         </div>
         <div class="stat-card">
-            <span class="stat-label">Geannuleerd</span>
+            <span class="stat-card-label">Geannuleerd</span>
             <strong>@_analytics.CancelledCount</strong>
-            <span class="text-muted small">in gekozen periode</span>
+            <span class="stat-card-support">in gekozen periode</span>
         </div>
     </div>
 
     @if (_analytics.TotalReservations == 0)
     {
-        <section class="content-section">
-            <p class="empty-state"><strong>Geen reserveringen in deze periode</strong>Kies een andere periode om inzichten te zien.</p>
-        </section>
+        <EmptyState Icon="icon-analytics"
+                    Title="Geen reserveringen in deze periode"
+                    Description="Kies een andere periode om inzichten te zien." />
     }
     else
     {
-        <section class="content-section">
-            <div class="section-heading">
-                <h2>Drukte per weekdag</h2>
-            </div>
+        <SectionCard Title="Drukte per weekdag"
+                     Subtitle="Aantal reserveringen per dag van de week">
             <div class="bar-chart">
                 @{
                     var maxWeekday = _analytics.PerWeekday.Count == 0 ? 0 : _analytics.PerWeekday.Max(item => item.Count);
@@ -87,19 +81,19 @@ else if (_analytics is not null)
                     </div>
                 }
             </div>
-        </section>
+        </SectionCard>
 
-        <section class="content-section">
-            <div class="section-heading">
-                <h2>Drukke tijden (per uur)</h2>
-            </div>
+        <SectionCard Title="Drukke tijden"
+                     Subtitle="Reserveringen per uur van de dag">
             @{
                 var hours = _analytics.PerHour.Where(item => item.Count > 0).ToList();
                 var maxHour = hours.Count == 0 ? 0 : hours.Max(item => item.Count);
             }
             @if (hours.Count == 0)
             {
-                <p class="empty-state"><strong>Geen tijdsgegevens</strong>Er zijn nog geen reserveringen met een tijdstip in deze periode.</p>
+                <EmptyState Icon="icon-clock"
+                            Title="Geen tijdsgegevens"
+                            Description="Er zijn nog geen reserveringen met een tijdstip in deze periode." />
             }
             else
             {
@@ -114,12 +108,10 @@ else if (_analytics is not null)
                     }
                 </div>
             }
-        </section>
+        </SectionCard>
 
-        <section class="content-section">
-            <div class="section-heading">
-                <h2>Reserveringen per dag</h2>
-            </div>
+        <SectionCard Title="Reserveringen per dag"
+                     Subtitle="Dagelijkse verdeling in de gekozen periode">
             <div class="bar-chart">
                 @{
                     var maxDay = _analytics.PerDay.Count == 0 ? 0 : _analytics.PerDay.Max(item => item.Count);
@@ -133,7 +125,7 @@ else if (_analytics is not null)
                     </div>
                 }
             </div>
-        </section>
+        </SectionCard>
     }
 }
 
@@ -222,14 +214,14 @@ else if (_analytics is not null)
     {
         return dayOfWeek switch
         {
-            DayOfWeek.Monday => "Maandag",
-            DayOfWeek.Tuesday => "Dinsdag",
+            DayOfWeek.Monday    => "Maandag",
+            DayOfWeek.Tuesday   => "Dinsdag",
             DayOfWeek.Wednesday => "Woensdag",
-            DayOfWeek.Thursday => "Donderdag",
-            DayOfWeek.Friday => "Vrijdag",
-            DayOfWeek.Saturday => "Zaterdag",
-            DayOfWeek.Sunday => "Zondag",
-            _ => dayOfWeek.ToString()
+            DayOfWeek.Thursday  => "Donderdag",
+            DayOfWeek.Friday    => "Vrijdag",
+            DayOfWeek.Saturday  => "Zaterdag",
+            DayOfWeek.Sunday    => "Zondag",
+            _                   => dayOfWeek.ToString()
         };
     }
 }

@@ -1,0 +1,25 @@
+<a class="quick-action-card @CssClass" href="@Href">
+    <span class="quick-action-icon @Icon" aria-hidden="true"></span>
+    <span class="quick-action-content">
+        <strong>@Title</strong>
+        <span>@Description</span>
+    </span>
+    <span class="quick-action-arrow" aria-hidden="true">&rarr;</span>
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Description { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = "+";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+}

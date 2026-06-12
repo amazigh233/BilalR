@@ -1,5 +1,6 @@
 using Booking.Application.Restaurants;
 using Booking.Application.Tests.Fakes;
+using Booking.Domain.Restaurants;
 
 namespace Booking.Application.Tests.Restaurants;
 
@@ -18,6 +19,8 @@ public sealed class CreateRestaurantUseCaseTests
 
         Assert.NotEqual(Guid.Empty, response.Id);
         Assert.Equal("Sultana BBQ", response.Name);
+        Assert.Equal(Restaurant.DefaultWidgetPrimaryColor, response.WidgetPrimaryColor);
+        Assert.Equal(Restaurant.DefaultWidgetAccentColor, response.WidgetAccentColor);
         Assert.Single(repository.Restaurants);
     }
 }

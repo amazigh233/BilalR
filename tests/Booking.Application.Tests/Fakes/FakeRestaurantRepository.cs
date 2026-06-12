@@ -6,6 +6,7 @@ namespace Booking.Application.Tests.Fakes;
 public sealed class FakeRestaurantRepository : IRestaurantRepository
 {
     private readonly Dictionary<Guid, List<OpeningHour>> _openingHours = [];
+    private readonly Dictionary<Guid, List<WidgetAllowedOrigin>> _widgetAllowedOrigins = [];
 
     public List<Restaurant> Restaurants { get; } = [];
 
@@ -47,6 +48,26 @@ public sealed class FakeRestaurantRepository : IRestaurantRepository
         CancellationToken cancellationToken = default)
     {
         _openingHours[restaurantId] = openingHours.ToList();
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyCollection<WidgetAllowedOrigin>> GetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        CancellationToken cancellationToken = default)
+    {
+        var origins = _widgetAllowedOrigins.TryGetValue(restaurantId, out var values)
+            ? values
+            : [];
+
+        return Task.FromResult<IReadOnlyCollection<WidgetAllowedOrigin>>(origins);
+    }
+
+    public Task SetWidgetAllowedOriginsAsync(
+        Guid restaurantId,
+        IReadOnlyCollection<WidgetAllowedOrigin> origins,
+        CancellationToken cancellationToken = default)
+    {
+        _widgetAllowedOrigins[restaurantId] = origins.ToList();
         return Task.CompletedTask;
     }
 }

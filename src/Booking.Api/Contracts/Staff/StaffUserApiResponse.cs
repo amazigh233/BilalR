@@ -5,6 +5,7 @@ public sealed record StaffUserApiResponse(
     string Name,
     string Email,
     string? PhoneNumber,
+    decimal? HourlyWage,
     string Role,
     Guid RestaurantId,
     bool IsActive);

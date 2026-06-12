@@ -20,6 +20,10 @@ public sealed class CreateRestaurantUseCase(IRestaurantRepository restaurantRepo
             restaurant.Id,
             restaurant.Name,
             restaurant.PhoneNumber,
-            restaurant.Email);
+            restaurant.Email,
+            restaurant.WidgetPrimaryColor,
+            restaurant.WidgetAccentColor,
+            restaurant.WidgetWelcomeText,
+            restaurant.WidgetLogoUrl);
     }
 }

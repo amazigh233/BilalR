@@ -1,8 +1,10 @@
 using Booking.BlazorApp.Components;
 using Booking.BlazorApp.ApiClients;
 using Booking.BlazorApp.Authentication;
+using Booking.BlazorApp.Security;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -13,6 +15,15 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
+
+var dataProtection = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("Zambiq.Booking.BlazorApp");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -53,8 +64,20 @@ builder.Services.AddHttpClient<LeaveApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
 builder.Services.AddHttpClient<DeliveryApiClient>(client =>
     client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<WidgetSecurityApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<WidgetSettingsApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<AccountingApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<TableApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddHttpClient<GoogleBusinessApiClient>(client =>
+    client.BaseAddress = new Uri(bookingApiBaseUrl));
+builder.Services.AddTransient<WidgetFrameAncestorsProvider>();
 
 var app = builder.Build();
+WidgetSecurityPolicy.CreateFrameAncestorsDirective(app.Configuration);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -71,18 +94,27 @@ app.UseAuthorization();
 
 app.UseAntiforgery();
 
-// Allow the embed route to be framed on any customer website. Blazor component pages send
-// X-Frame-Options: SAMEORIGIN + CSP frame-ancestors 'self' by default (anti-clickjacking),
-// which would block the iframe widget cross-origin. We relax this only for /embed/*.
-// (Later: restrict frame-ancestors to a per-restaurant allowlist.)
+// Only embed routes receive the configured frame allowlist. Other pages retain the
+// framework's default anti-clickjacking headers.
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/embed"))
     {
+        var provider = context.RequestServices
+            .GetRequiredService<WidgetFrameAncestorsProvider>();
+        var restaurantId = WidgetSecurityPolicy.TryGetRestaurantId(
+            context.Request.Path,
+            out var parsedRestaurantId)
+            ? parsedRestaurantId
+            : (Guid?)null;
+        var widgetFrameAncestorsDirective = await provider.GetDirectiveAsync(
+            restaurantId,
+            context.RequestAborted);
+
         context.Response.OnStarting(() =>
         {
             context.Response.Headers.Remove("X-Frame-Options");
-            context.Response.Headers["Content-Security-Policy"] = "frame-ancestors *";
+            context.Response.Headers["Content-Security-Policy"] = widgetFrameAncestorsDirective;
             return Task.CompletedTask;
         });
     }
@@ -176,4 +208,8 @@ static string NormalizeReturnUrl(string? returnUrl)
     }
 
     return returnUrl;
+}
+
+public partial class Program
+{
 }

@@ -4,4 +4,5 @@ public sealed record CreateStaffApiRequest(
     string Name,
     string Email,
     string TemporaryPassword,
-    string? PhoneNumber);
+    string? PhoneNumber,
+    decimal? HourlyWage);

@@ -33,6 +33,9 @@ public static class DependencyInjection
         services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
         services.AddScoped<IDeliveryOrderRepository, DeliveryOrderRepository>();
         services.AddScoped<IDeliveryIntegrationRepository, DeliveryIntegrationRepository>();
+        services.AddScoped<IAccountingRepository, AccountingRepository>();
+        services.AddScoped<ITableRepository, TableRepository>();
+        services.AddScoped<IGoogleBusinessRepository, GoogleBusinessRepository>();
         services.AddScoped<IAvailabilityService, AvailabilityService>();
 
         var emailOptions = new EmailOptions

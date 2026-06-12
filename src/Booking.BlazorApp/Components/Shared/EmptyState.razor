@@ -1,0 +1,30 @@
+<div class="empty-state @CssClass">
+    <span class="empty-state-icon @Icon" aria-hidden="true"></span>
+    <div>
+        <strong>@Title</strong>
+        <p>@Description</p>
+    </div>
+    @if (Action is not null)
+    {
+        <div class="empty-state-action">
+            @Action
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Description { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Icon { get; set; } = "Z";
+
+    [Parameter]
+    public string? CssClass { get; set; }
+
+    [Parameter]
+    public RenderFragment? Action { get; set; }
+}

@@ -76,6 +76,7 @@ public sealed class StaffController(
             PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
                 ? null
                 : request.PhoneNumber.Trim(),
+            HourlyWage = request.HourlyWage,
             RestaurantId = restaurantId
         };
 
@@ -105,6 +106,64 @@ public sealed class StaffController(
         return CreatedAtAction(
             nameof(GetAll),
             ToApiResponse(staff));
+    }
+
+    [HttpPatch("{userId:guid}")]
+    [Authorize(Policy = "RestaurantOwner")]
+    [ProducesResponseType(typeof(StaffUserApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(Contracts.Common.ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<StaffUserApiResponse>> Update(
+        Guid userId,
+        [FromBody] UpdateStaffApiRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetCurrentRestaurantId(out var restaurantId))
+        {
+            return Forbid();
+        }
+
+        if (request is null)
+        {
+            return BadRequest(ToError("Request body is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(ToError("Naam is verplicht."));
+        }
+
+        var wageError = ValidateHourlyWage(request.HourlyWage);
+        if (wageError is not null)
+        {
+            return BadRequest(ToError(wageError));
+        }
+
+        var staff = await userManager.FindByIdAsync(userId.ToString());
+        if (staff is null ||
+            staff.RestaurantId != restaurantId ||
+            !await userManager.IsInRoleAsync(staff, BookingRoles.Staff))
+        {
+            return NotFound(ToError("Medewerker is niet gevonden."));
+        }
+
+        staff.DisplayName = request.Name.Trim();
+        staff.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber)
+            ? null
+            : request.PhoneNumber.Trim();
+        staff.HourlyWage = request.HourlyWage;
+
+        var updateResult = await userManager.UpdateAsync(staff);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!updateResult.Succeeded)
+        {
+            return BadRequest(ToError(ToIdentityErrorMessage(updateResult)));
+        }
+
+        return Ok(ToApiResponse(staff));
     }
 
     [HttpPatch("{userId:guid}/disable")]
@@ -193,6 +252,7 @@ public sealed class StaffController(
             staff.DisplayName,
             staff.Email ?? string.Empty,
             staff.PhoneNumber,
+            staff.HourlyWage,
             BookingRoles.Staff,
             staff.RestaurantId,
             IsActive(staff));
@@ -229,6 +289,16 @@ public sealed class StaffController(
         if (string.IsNullOrWhiteSpace(request.TemporaryPassword))
         {
             return "Tijdelijk wachtwoord is verplicht.";
+        }
+
+        return ValidateHourlyWage(request.HourlyWage);
+    }
+
+    private static string? ValidateHourlyWage(decimal? hourlyWage)
+    {
+        if (hourlyWage is < 0 or >= 1000)
+        {
+            return "Uurloon moet tussen 0 en 1000 liggen.";
         }
 
         return null;

@@ -30,7 +30,8 @@ public sealed class StaffControllerTests
                 "New Staff",
                 "new-staff@example.com",
                 BookingApiFactory.TestPassword,
-                "+31 20 000 1000"));
+                "+31 20 000 1000",
+                14.50m));
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var staffResponse = await response.Content.ReadFromJsonAsync<StaffUserApiResponse>();
@@ -65,6 +66,7 @@ public sealed class StaffControllerTests
                 "Other Staff",
                 "other-staff@example.com",
                 BookingApiFactory.TestPassword,
+                null,
                 null));
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -115,6 +117,7 @@ public sealed class StaffControllerTests
                 "Duplicate Staff",
                 "duplicate-staff@example.com",
                 BookingApiFactory.TestPassword,
+                null,
                 null));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);

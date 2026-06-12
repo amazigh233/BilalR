@@ -1,19 +1,32 @@
 @page "/login"
+@layout Layout.PublicLayout
 @attribute [AllowAnonymous]
 
 <PageTitle>Inloggen</PageTitle>
 
 <section class="login-shell">
+    <div class="login-intro">
+        <div class="login-intro-number">ZAMBIQ / SERVICE OS</div>
+        <p class="eyebrow">Alles klaar voor vandaag</p>
+        <h1>Neem controle over de service.</h1>
+        <p>Reserveringen, planning en teamwerk samen in één scherpe, rustige werkplek.</p>
+        <div class="login-feature-list">
+            <span><b>01</b> Reserveringen</span>
+            <span><b>02</b> Team</span>
+            <span><b>03</b> Operatie</span>
+        </div>
+    </div>
+
     <div class="login-panel">
         <div class="login-brand">
             <div class="login-brand-mark">Z</div>
             <div>
-                <p class="eyebrow mb-1">Zambiq Booking</p>
-                <strong>Restaurant dashboard</strong>
+                <p class="eyebrow mb-1">Zambiq workspace</p>
+                <strong>Zakelijke toegang</strong>
             </div>
         </div>
-        <h1>Inloggen</h1>
-        <p class="text-muted mb-4">Beheer reserveringen, openingstijden en je team vanuit een rustige werkplek.</p>
+        <h2>Inloggen</h2>
+        <p class="text-muted mb-4">Gebruik je account om verder te gaan.</p>
 
         @if (!string.IsNullOrWhiteSpace(Error))
         {
@@ -36,6 +49,7 @@
                        name="Email"
                        type="email"
                        autocomplete="username"
+                       placeholder="naam@restaurant.nl"
                        required />
             </div>
 
@@ -49,8 +63,9 @@
                        required />
             </div>
 
-            <button class="btn btn-primary w-100" type="submit">Inloggen</button>
+            <button class="btn btn-primary w-100" type="submit">Open mijn werkplek <span aria-hidden="true">&rarr;</span></button>
         </form>
+        <p class="login-panel-footnote">Beveiligde toegang tot jouw restaurantomgeving.</p>
     </div>
 </section>
 

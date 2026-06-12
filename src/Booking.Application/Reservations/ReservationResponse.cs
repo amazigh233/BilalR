@@ -13,7 +13,8 @@ public sealed record ReservationResponse(
     int PartySize,
     string? Note,
     ReservationStatus Status,
-    DateTime CreatedAtUtc)
+    DateTime CreatedAtUtc,
+    Guid? TableId)
 {
     public static ReservationResponse FromReservation(Reservation reservation)
     {
@@ -28,6 +29,7 @@ public sealed record ReservationResponse(
             reservation.PartySize,
             reservation.Note,
             reservation.Status,
-            reservation.CreatedAtUtc);
+            reservation.CreatedAtUtc,
+            reservation.TableId);
     }
 }

@@ -1,5 +1,6 @@
 using Booking.Domain.Reservations;
 using Booking.Domain.Restaurants;
+using Booking.Domain.Tables;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -45,6 +46,14 @@ public sealed class ReservationConfiguration : IEntityTypeConfiguration<Reservat
             .WithMany()
             .HasForeignKey(reservation => reservation.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(reservation => reservation.TableId);
+
+        builder.HasOne<Table>()
+            .WithMany()
+            .HasForeignKey(reservation => reservation.TableId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasIndex(reservation => new
         {

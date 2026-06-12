@@ -1,154 +1,179 @@
 .app-shell {
-    position: relative;
     display: flex;
-    flex-direction: column;
     min-height: 100vh;
-}
-
-.main-panel {
-    flex: 1;
-    min-width: 0;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0) 18rem),
-        #f4f6f1;
+    background: var(--zambiq-bg);
 }
 
 .sidebar {
-    background: #17211d;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    position: relative;
+    z-index: var(--z-shell);
+    flex: 0 0 auto;
+    background: var(--zambiq-shell);
+}
+
+.main-panel {
+    min-width: 0;
+    flex: 1;
+    background: var(--zambiq-bg);
 }
 
 .top-row {
-    background-color: rgba(255, 255, 255, 0.88);
-    border-bottom: 1px solid #dde5df;
-    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    display: flex;
     min-height: 4.25rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1rem;
+    background: oklch(0.972 0.005 145 / 0.85);
+    border-bottom: 1px solid var(--zambiq-border);
+    backdrop-filter: blur(14px);
+}
+
+.topbar-meta,
+.account-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.topbar-live {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    color: #596962;
-    font-size: 0.92rem;
-    padding: 0.75rem 1rem;
-    backdrop-filter: blur(12px);
+    gap: 0.45rem;
+    color: var(--zambiq-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.topbar-live i {
+    width: 0.45rem;
+    height: 0.45rem;
+    background: var(--zambiq-success);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px oklch(0.49 0.1 155 / 0.18);
 }
 
 .topbar-label {
-    color: #7b8882;
-    font-size: 0.8rem;
-    font-weight: 800;
-    letter-spacing: 0.08rem;
-    text-transform: uppercase;
+    margin-top: 0.12rem;
+    overflow: hidden;
+    color: var(--zambiq-text);
+    font-size: 0.875rem;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    text-transform: capitalize;
+    white-space: nowrap;
 }
 
 .account-area {
     display: flex;
-    align-items: center;
-    gap: 0.65rem;
     min-width: 0;
+    align-items: center;
+    gap: 0.7rem;
 }
 
 .user-chip {
-    display: inline-grid;
-    width: 2rem;
-    height: 2rem;
+    display: grid;
+    width: 2.4rem;
+    height: 2.4rem;
     place-items: center;
     flex: 0 0 auto;
-    color: #ffffff;
-    background: #8f4f32;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 800;
+    color: oklch(1 0 0);
+    background: var(--zambiq-primary);
+    border: 0;
+    border-radius: 50%;
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 
 .account-name {
-    max-width: 16rem;
+    max-width: 15rem;
     overflow: hidden;
-    color: #25342e;
-    font-weight: 700;
+    color: var(--zambiq-text);
+    font-size: 0.875rem;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        text-decoration: none;
-    }
+.account-role {
+    margin-top: 0.1rem;
+    color: var(--zambiq-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+}
 
-    .top-row ::deep form {
-        margin: 0;
-    }
+.top-row ::deep a,
+.top-row ::deep .btn-link {
+    white-space: nowrap;
+    text-decoration: none;
+}
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: none;
-    }
+.top-row ::deep form {
+    margin: 0;
+}
 
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+#blazor-error-ui {
+    position: fixed;
+    z-index: var(--z-toast);
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    display: none;
+    padding: 0.8rem 3rem 0.8rem 1rem;
+    color: oklch(0.4 0.14 25);
+    background: var(--zambiq-danger-soft);
+    border: 1px solid oklch(0.85 0.05 25);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.75rem;
+    cursor: pointer;
+}
 
 @media (max-width: 640.98px) {
-    .top-row {
-        padding-right: 4.85rem;
+    .app-shell {
+        flex-direction: column;
     }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
+    .sidebar {
+        position: sticky;
+        top: 0;
+    }
+
+    .top-row {
+        min-height: 3.9rem;
+        padding-right: 4.5rem;
     }
 
     .topbar-meta,
-    .account-name {
+    .account-copy {
         display: none;
     }
 }
 
 @media (min-width: 641px) {
-    .app-shell {
-        flex-direction: row;
-    }
-
     .sidebar {
-        width: 272px;
+        position: sticky;
+        top: 0;
+        width: 260px;
         height: 100vh;
-        position: sticky;
-        top: 0;
+        flex-basis: 260px;
     }
 
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+    .top-row,
+    article {
+        padding-right: clamp(1.25rem, 4vw, 3.5rem) !important;
+        padding-left: clamp(1.25rem, 4vw, 3.5rem) !important;
     }
 }
-
-#blazor-error-ui {
-    color-scheme: light only;
-    background: lightyellow;
-    bottom: 0;
-    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
-    box-sizing: border-box;
-    display: none;
-    left: 0;
-    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
-    position: fixed;
-    width: 100%;
-    z-index: 1000;
-}
-
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        position: absolute;
-        right: 0.75rem;
-        top: 0.5rem;
-    }

@@ -46,4 +46,6 @@ public sealed record DeliveryIntegrationApiResponse(
 public sealed record ConnectDeliveryApiResponse(
     DeliveryProvider Provider,
     string WebhookUrl,
-    string Secret);
+    string Secret,
+    string? JetConnectOrderUrl,
+    string? TConnectOrderUrl);

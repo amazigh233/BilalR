@@ -1,0 +1,112 @@
+@page "/gbp-callback"
+@attribute [AllowAnonymous]
+@rendermode InteractiveServer
+@inject GoogleBusinessApiClient GbpApi
+@inject NavigationManager Navigation
+
+<PageTitle>Google Business Profile koppelen</PageTitle>
+
+<div class="page-shell page-shell-narrow">
+    @if (_loading)
+    {
+        <div class="loading-state">Verbinding wordt afgerond...</div>
+    }
+    else if (!string.IsNullOrWhiteSpace(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+        <a class="btn btn-quiet" href="/admin/google-business">Terug</a>
+    }
+    else if (_locations is not null && _locations.Count == 0)
+    {
+        <div class="alert alert-warning">Geen Google Business-locaties gevonden op dit account. Controleer of je het juiste Google-account hebt gebruikt.</div>
+        <a class="btn btn-quiet" href="/admin/google-business">Terug</a>
+    }
+    else if (_locations is not null)
+    {
+        <section class="page-header">
+            <div>
+                <p class="eyebrow">Google Business Profile</p>
+                <h1>Selecteer je locatie</h1>
+                <p class="text-muted mb-0">Kies de Google-locatie die overeenkomt met dit restaurant.</p>
+            </div>
+        </section>
+
+        <div class="list-stack mt-4">
+            @foreach (var loc in _locations)
+            {
+                <div class="list-row">
+                    <div>
+                        <strong>@loc.Title</strong>
+                        @if (!string.IsNullOrWhiteSpace(loc.StoreCode))
+                        {
+                            <span class="text-muted ms-2">@loc.StoreCode</span>
+                        }
+                        <div class="text-muted small">@loc.LocationName</div>
+                    </div>
+                    <div class="list-row-actions">
+                        <button class="btn btn-primary btn-sm"
+                                disabled="@_saving"
+                                @onclick="() => SelectLocationAsync(loc)">
+                            @(_saving && _selectingLocation == loc.LocationName ? "Opslaan..." : "Selecteren")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+    private IReadOnlyCollection<GbpLocationSummaryDto>? _locations;
+    private string? _selectingLocation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+
+        if (!query.TryGetValue("code", out var code) || !query.TryGetValue("state", out var state))
+        {
+            _errorMessage = "Ongeldige OAuth-callback: code of state ontbreekt.";
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _locations = await GbpApi.CompleteOAuthAsync(state!, code!, CancellationToken.None);
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SelectLocationAsync(GbpLocationSummaryDto location)
+    {
+        _saving = true;
+        _selectingLocation = location.LocationName;
+        _errorMessage = null;
+        try
+        {
+            await GbpApi.SelectLocationAsync(location.AccountName, location.LocationName);
+            Navigation.NavigateTo("/admin/google-business");
+        }
+        catch (ApiClientException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+            _selectingLocation = null;
+        }
+    }
+}

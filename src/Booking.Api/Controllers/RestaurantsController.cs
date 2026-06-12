@@ -162,7 +162,11 @@ public sealed class RestaurantsController(
             response.Id,
             response.Name,
             response.PhoneNumber,
-            response.Email);
+            response.Email,
+            response.WidgetPrimaryColor,
+            response.WidgetAccentColor,
+            response.WidgetWelcomeText,
+            response.WidgetLogoUrl);
     }
 
     private static RestaurantApiResponse ToApiResponse(CreateRestaurantResponse response)
@@ -171,6 +175,10 @@ public sealed class RestaurantsController(
             response.Id,
             response.Name,
             response.PhoneNumber,
-            response.Email);
+            response.Email,
+            response.WidgetPrimaryColor,
+            response.WidgetAccentColor,
+            response.WidgetWelcomeText,
+            response.WidgetLogoUrl);
     }
 }

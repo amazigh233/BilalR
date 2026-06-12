@@ -8,38 +8,45 @@
     <main class="main-panel">
         <div class="top-row">
             <div class="topbar-meta">
-                <span class="topbar-label">Zambiq Booking</span>
+                <span class="topbar-live"><i aria-hidden="true"></i> Operationeel</span>
+                <span class="topbar-label">@DateTime.Now.ToString("dddd, d MMMM", DutchCulture)</span>
             </div>
             <AuthorizeView>
                 <Authorized>
                     <div class="account-area">
                         <span class="user-chip">@GetInitials(context.User.Identity?.Name)</span>
-                        <span class="account-name">@context.User.Identity?.Name</span>
+                        <span class="account-copy">
+                            <span class="account-name">@context.User.Identity?.Name</span>
+                            <span class="account-role">Ingelogd account</span>
+                        </span>
                         <form method="post" action="/auth/logout">
                             <AntiforgeryToken />
-                            <button class="btn btn-outline-secondary btn-sm" type="submit">Uitloggen</button>
+                            <button class="btn btn-quiet btn-sm" type="submit">Uitloggen</button>
                         </form>
                     </div>
                 </Authorized>
                 <NotAuthorized>
-                    <a class="btn btn-outline-secondary btn-sm" href="/login">Inloggen</a>
+                    <a class="btn btn-primary btn-sm" href="/login">Inloggen</a>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
 
-        <article class="content px-4">
+        <article class="content">
             @Body
         </article>
     </main>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">x</span>
+    Er is iets misgegaan.
+    <a href="." class="reload">Opnieuw laden</a>
+    <span class="dismiss">&times;</span>
 </div>
 
 @code {
+    private static readonly System.Globalization.CultureInfo DutchCulture =
+        System.Globalization.CultureInfo.GetCultureInfo("nl-NL");
+
     private static string GetInitials(string? name)
     {
         if (string.IsNullOrWhiteSpace(name))

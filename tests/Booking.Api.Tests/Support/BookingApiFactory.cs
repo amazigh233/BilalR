@@ -28,6 +28,10 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncDi
     private readonly string? _previousJwtSigningKey;
     private readonly string _connectionString =
         $"Server=localhost,1434;Database=BookingApiTests_{Guid.NewGuid():N};User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;Encrypt=False;";
+    private readonly string _widgetAssetsPath =
+        Path.Combine(Path.GetTempPath(), "BookingApiTests", Guid.NewGuid().ToString("N"));
+    private readonly string _accountingAssetsPath =
+        Path.Combine(Path.GetTempPath(), "BookingApiTests", Guid.NewGuid().ToString("N"));
 
     public BookingApiFactory()
     {
@@ -154,6 +158,9 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncDi
                 ["ConnectionStrings:BookingDatabase"] = _connectionString,
                 ["Authentication:Jwt:SigningKey"] = JwtSigningKey,
                 ["Authentication:DevSeed:Enabled"] = "false",
+                ["WidgetAssets:StoragePath"] = _widgetAssetsPath,
+                ["WidgetAssets:PublicBaseUrl"] = "http://localhost",
+                ["Accounting:StoragePath"] = _accountingAssetsPath,
                 // Keep tests decoupled from the production rate limit.
                 ["RateLimiting:Public:PermitLimit"] = "100000"
             });
@@ -185,6 +192,22 @@ public sealed class BookingApiFactory : WebApplicationFactory<Program>, IAsyncDi
         Environment.SetEnvironmentVariable("ConnectionStrings__BookingDatabase", _previousConnectionString);
         Environment.SetEnvironmentVariable("Authentication__DevSeed__Enabled", _previousDevSeedEnabled);
         Environment.SetEnvironmentVariable("Authentication__Jwt__SigningKey", _previousJwtSigningKey);
+
+        var expectedRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "BookingApiTests"));
+        var resolvedAssetsPath = Path.GetFullPath(_widgetAssetsPath);
+        if (resolvedAssetsPath.StartsWith(expectedRoot, StringComparison.OrdinalIgnoreCase) &&
+            Directory.Exists(resolvedAssetsPath))
+        {
+            Directory.Delete(resolvedAssetsPath, recursive: true);
+        }
+
+        var resolvedAccountingAssetsPath = Path.GetFullPath(_accountingAssetsPath);
+        if (resolvedAccountingAssetsPath.StartsWith(expectedRoot, StringComparison.OrdinalIgnoreCase) &&
+            Directory.Exists(resolvedAccountingAssetsPath))
+        {
+            Directory.Delete(resolvedAccountingAssetsPath, recursive: true);
+        }
+
         await base.DisposeAsync();
     }
 }

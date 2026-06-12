@@ -11,6 +11,9 @@ public sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Appl
         builder.Property(user => user.DisplayName)
             .HasMaxLength(200);
 
+        builder.Property(user => user.HourlyWage)
+            .HasPrecision(9, 2);
+
         builder.HasOne(user => user.Restaurant)
             .WithMany()
             .HasForeignKey(user => user.RestaurantId)

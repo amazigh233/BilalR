@@ -2,6 +2,61 @@
 
 Dit document beschrijft de technische architectuur voor het centrale reserveringsplatform.
 
+---
+
+## Google Business Profile Integration
+
+### Source of Truth
+
+| Data type | Source of truth | Sync direction | Trigger |
+|---|---|---|---|
+| Opening hours (regular) | Zambiq | Zambiq → GBP | On save + manual "Sync now" |
+| Business name / phone | Zambiq restaurant entity | Zambiq → GBP | Manual (future) |
+| Reviews | Google | GBP → Zambiq | Background sync every 6 hours |
+| Review replies | Zambiq (user writes) | Zambiq → GBP | On submit |
+| Food menu | Zambiq menu catalog (not built yet) | Zambiq → GBP | Deferred |
+| Photos / Posts | Created in Zambiq | Zambiq → GBP | Future |
+
+**Rule:** Google is never the source of truth for structured data Zambiq already owns
+(hours, business info). Zambiq is never the source of truth for user-generated content
+that originates on Google (reviews).
+
+### Token Storage
+
+OAuth tokens are encrypted with **ASP.NET Core Data Protection API** (protector key:
+`Zambiq.GoogleBusiness.v1`) before storage in `GoogleBusinessConnections`. Tokens are
+decrypted in-memory only when needed. Expired access tokens are refreshed automatically;
+refresh failure marks the connection `ReconnectRequired`.
+
+### Connection Lifecycle
+
+```
+(no connection) → Pending → Connected ←→ ReconnectRequired
+                                │
+                                └→ Disabled
+```
+
+### API Surface
+
+| Feature | API | Notes |
+|---|---|---|
+| List accounts/locations | Account Management API v1 (NuGet) | Post-approval quota ~300 QPM |
+| Update hours | Business Information API v1 (NuGet) | `PATCH locations/{name}?updateMask=regularHours` |
+| Get/reply/delete reviews | My Business API v4 (raw HTTP) | Still required in 2026; no NuGet |
+| OAuth token exchange | Google OAuth2 (raw HTTP) | `oauth2.googleapis.com/token` |
+
+### Background Sync
+
+`GoogleBusinessReviewSyncService` (IHostedService, PeriodicTimer 6h) — same pattern as
+`AccountingDailySyncService`. Reviews are upserted by `ReviewName`. Errors logged + stored
+on connection; service never crashes on individual failure.
+
+### Feature Flag
+
+Entire integration gated by `GoogleBusiness:Enabled` (default `false`). All endpoints
+return 404 when disabled. Set to `true` only after GBP API access approved in GCP.
+See `SETUP.md` for the full setup procedure.
+
 ## Kernprincipe
 
 De centrale .NET backend is de bron van waarheid.

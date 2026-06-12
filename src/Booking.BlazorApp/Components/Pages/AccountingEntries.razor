@@ -1,0 +1,109 @@
+@page "/admin/boekhouding/boekingen"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject AccountingApiClient AccountingApi
+
+<PageTitle>Boekingen</PageTitle>
+<PageHeader Eyebrow="Boekhouding" Title="Boekingen" Description="Leg handmatige omzet en kosten vast. Bevestigde boekingen worden alleen via een zichtbare correctie aangepast.">
+    <Actions><button class="btn btn-primary btn-sm" @onclick="NewEntry">Nieuwe boeking</button></Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(_error)) { <div class="alert alert-danger">@_error</div> }
+@if (_editing)
+{
+    <SectionCard Title="@(_correctionOf.HasValue ? "Correctie maken" : "Nieuwe conceptboeking")">
+        <div class="form-grid">
+            <div class="form-field"><label>Type</label><InputSelect class="form-select" @bind-Value="_type"><option value="@AccountingEntryType.Revenue">Omzet</option><option value="@AccountingEntryType.Expense">Kosten</option><option value="@AccountingEntryType.Transfer">Transfer</option></InputSelect></div>
+            <div class="form-field"><label>Datum</label><InputDate class="form-control" @bind-Value="_date" /></div>
+            <div class="form-field"><label>Omschrijving</label><InputText class="form-control" @bind-Value="_description" /></div>
+            <div class="form-field"><label>Categorie</label><InputSelect class="form-select" @bind-Value="_categoryId"><option value="">Geen categorie</option>@foreach (var c in CategoriesForType()) { <option value="@c.Id">@c.Name</option> }</InputSelect></div>
+            <div class="form-field"><label>Btw</label><InputSelect class="form-select" @bind-Value="_vatRate"><option value="0">0%</option><option value="9">9%</option><option value="21">21%</option></InputSelect></div>
+            <div class="form-field"><label>Bruto bedrag</label><InputNumber class="form-control" @bind-Value="_gross" step="0.01" /></div>
+            @if (_type == AccountingEntryType.Expense) { <div class="form-field"><label>Aftrekbare btw</label><InputNumber class="form-control" @bind-Value="_deductibleVat" step="0.01" /></div> }
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" @onclick="SaveAsync">@(_correctionOf.HasValue ? "Correctie bevestigen" : "Concept opslaan")</button><button class="btn btn-outline-secondary" @onclick="Cancel">Annuleren</button></div>
+    </SectionCard>
+}
+
+@if (_attachmentEntryId.HasValue)
+{
+    <SectionCard Title="Bewijsstuk toevoegen" Subtitle="PDF, JPG of PNG tot 10 MB">
+        <InputFile OnChange="UploadAttachmentAsync" accept=".pdf,.jpg,.jpeg,.png" />
+        <button class="btn btn-outline-secondary btn-sm mt-3" @onclick="() => _attachmentEntryId = null">Sluiten</button>
+    </SectionCard>
+}
+
+@if (_loading) { <div class="loading-state">Boekingen laden...</div> }
+else
+{
+    <SectionCard Title="Boekingen" Subtitle="Concepten, bevestigde boekingen en zichtbare correcties">
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>Datum</th><th>Omschrijving</th><th>Type</th><th>Status</th><th>Bedrag</th><th></th></tr></thead>
+                <tbody>
+                @foreach (var entry in _entries)
+                {
+                    <tr>
+                        <td>@entry.EntryDate.ToString("dd-MM-yyyy")</td><td>@entry.Description</td><td>@TypeLabel(entry.EntryType)</td><td>@entry.Status</td><td>@Money(entry.GrossAmount)</td>
+                        <td><div class="form-actions">
+                            @if (entry.Status == AccountingEntryStatus.Draft) { <button class="btn btn-primary btn-sm" @onclick="() => ConfirmAsync(entry.Id)">Bevestigen</button> }
+                            @if (entry.Status == AccountingEntryStatus.Confirmed) { <button class="btn btn-outline-secondary btn-sm" @onclick="() => Correct(entry)">Corrigeren</button> }
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => _attachmentEntryId = entry.Id">Bewijsstuk</button>
+                        </div></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </SectionCard>
+}
+
+@code {
+    private List<AccountingEntryDto> _entries = [];
+    private List<AccountingCategoryDto> _categories = [];
+    private bool _loading = true;
+    private bool _editing;
+    private Guid? _correctionOf;
+    private Guid? _attachmentEntryId;
+    private AccountingEntryType _type = AccountingEntryType.Expense;
+    private DateOnly _date = DateOnly.FromDateTime(DateTime.Today);
+    private string _description = "";
+    private Guid? _categoryId;
+    private int _vatRate = 21;
+    private decimal _gross;
+    private decimal _deductibleVat;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+    private async Task LoadAsync()
+    {
+        _loading = true; _error = null;
+        try { _entries = (await AccountingApi.GetEntriesAsync()).ToList(); _categories = (await AccountingApi.GetCategoriesAsync()).Where(c => c.IsActive).ToList(); }
+        catch (ApiClientException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+    private void NewEntry() { _editing = true; _correctionOf = null; _type = AccountingEntryType.Expense; _date = DateOnly.FromDateTime(DateTime.Today); _description = ""; _categoryId = null; _vatRate = 21; _gross = 0; _deductibleVat = 0; }
+    private void Correct(AccountingEntryDto entry) { _editing = true; _correctionOf = entry.Id; _type = entry.EntryType; _date = entry.EntryDate; _description = entry.Description; var split = entry.Splits.First(); _categoryId = split.CategoryId; _vatRate = split.VatRate; _gross = split.GrossAmount; _deductibleVat = split.DeductibleVatAmount; }
+    private void Cancel() { _editing = false; _correctionOf = null; }
+    private IEnumerable<AccountingCategoryDto> CategoriesForType() => _categories.Where(c => c.EntryType == _type);
+    private async Task SaveAsync()
+    {
+        try
+        {
+            var request = new SaveAccountingEntryRequest(_type, _date, _description, [new AccountingSplitRequest(_categoryId, _vatRate, _gross, _type == AccountingEntryType.Expense ? _deductibleVat : 0)]);
+            if (_correctionOf.HasValue) await AccountingApi.CorrectEntryAsync(_correctionOf.Value, request); else await AccountingApi.CreateEntryAsync(request);
+            Cancel(); await LoadAsync();
+        }
+        catch (ApiClientException ex) { _error = ex.Message; }
+    }
+    private async Task ConfirmAsync(Guid id) { try { await AccountingApi.ConfirmEntryAsync(id); await LoadAsync(); } catch (ApiClientException ex) { _error = ex.Message; } }
+    private async Task UploadAttachmentAsync(InputFileChangeEventArgs e)
+    {
+        if (!_attachmentEntryId.HasValue) return;
+        try { await using var stream = e.File.OpenReadStream(10 * 1024 * 1024); await AccountingApi.UploadAttachmentAsync(_attachmentEntryId.Value, stream, e.File.Name); _attachmentEntryId = null; }
+        catch (Exception ex) when (ex is ApiClientException or IOException) { _error = ex.Message; }
+    }
+    private static string Money(decimal value) => value.ToString("C", CultureInfo.GetCultureInfo("nl-NL"));
+    private static string TypeLabel(AccountingEntryType type) => type switch { AccountingEntryType.Revenue => "Omzet", AccountingEntryType.Expense => "Kosten", _ => "Transfer" };
+}

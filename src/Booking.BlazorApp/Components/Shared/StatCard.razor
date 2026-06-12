@@ -1,0 +1,39 @@
+@if (string.IsNullOrWhiteSpace(Href))
+{
+    <div class="stat-card @CssClass">
+        <span class="stat-card-label">@Label</span>
+        <strong>@Value</strong>
+        @if (!string.IsNullOrWhiteSpace(SupportingText))
+        {
+            <span class="stat-card-support">@SupportingText</span>
+        }
+    </div>
+}
+else
+{
+    <a class="stat-card stat-card-link @CssClass" href="@Href">
+        <span class="stat-card-label">@Label</span>
+        <strong>@Value</strong>
+        @if (!string.IsNullOrWhiteSpace(SupportingText))
+        {
+            <span class="stat-card-support">@SupportingText</span>
+        }
+    </a>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? SupportingText { get; set; }
+
+    [Parameter]
+    public string? Href { get; set; }
+
+    [Parameter]
+    public string? CssClass { get; set; }
+}

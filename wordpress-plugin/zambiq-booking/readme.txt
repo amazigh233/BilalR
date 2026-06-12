@@ -3,7 +3,7 @@ Contributors: zambiq
 Tags: reserveringen, booking, widget, restaurant
 Requires at least: 6.3
 Tested up to: 6.5
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 
 Sluit de Zambiq-reserveringswidget in op je WordPress-site via een shortcode.
@@ -24,9 +24,14 @@ Plaats op een pagina of bericht de shortcode:
 
     [zambiq_booking restaurant="JE-RESTAURANT-ID"]
 
-Optioneel een vaste hoogte (in pixels):
+De widget past standaard automatisch zijn hoogte aan tijdens laden, validatie en bevestiging.
+Voor een vaste hoogte kun je auto-resize uitschakelen:
 
-    [zambiq_booking restaurant="JE-RESTAURANT-ID" height="760"]
+    [zambiq_booking restaurant="JE-RESTAURANT-ID" auto_resize="false" height="760"]
+
+Optioneel kun je een toegankelijke titel voor de widget instellen:
+
+    [zambiq_booking restaurant="JE-RESTAURANT-ID" title="Reserveer bij ons"]
 
 Het restaurant-id is de GUID van het restaurant in Zambiq (te vinden in het Zambiq-dashboard
 of in de publieke booking-URL `/booking/{id}`).
@@ -39,6 +44,11 @@ De shortcode plaatst een container `<div data-zambiq-restaurant="...">` en laadt
 WordPress opgeslagen.
 
 == Changelog ==
+
+= 1.1.0 =
+* De widget past automatisch zijn hoogte aan.
+* Shortcode-opties toegevoegd voor een vaste hoogte en toegankelijke titel.
+* Widget host-validatie aangescherpt.
 
 = 1.0.0 =
 * Eerste versie: shortcode + instellingen voor de widget host URL.

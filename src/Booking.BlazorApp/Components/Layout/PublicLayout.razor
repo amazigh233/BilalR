@@ -1,11 +1,35 @@
 @inherits LayoutComponentBase
+@inject NavigationManager Navigation
 
-<div class="public-shell">
+<div class="public-shell @(IsEmbedded ? "public-shell-embedded" : null)">
+    @if (!IsEmbedded)
+    {
+        <header class="public-topbar">
+            <a class="public-brand" href="/">
+                <span class="public-brand-mark">Z</span>
+                <span>
+                    <strong>Zambiq</strong>
+                    <small>Service operating system</small>
+                </span>
+            </a>
+            <a class="public-topbar-link" href="@(IsLogin ? "/" : "/login")">
+                @(IsLogin ? "Naar Zambiq" : "Ondernemerslogin")
+            </a>
+        </header>
+    }
     @Body
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">x</span>
+    Er is iets misgegaan.
+    <a href="." class="reload">Opnieuw laden</a>
+    <span class="dismiss">&times;</span>
 </div>
+
+@code {
+    private bool IsEmbedded => Navigation.ToBaseRelativePath(Navigation.Uri)
+        .StartsWith("embed/", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsLogin => Navigation.ToBaseRelativePath(Navigation.Uri)
+        .StartsWith("login", StringComparison.OrdinalIgnoreCase);
+}

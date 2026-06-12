@@ -6,7 +6,11 @@ public sealed record RestaurantResponse(
     Guid Id,
     string Name,
     string? PhoneNumber,
-    string? Email)
+    string? Email,
+    string WidgetPrimaryColor,
+    string WidgetAccentColor,
+    string? WidgetWelcomeText,
+    string? WidgetLogoUrl)
 {
     public static RestaurantResponse FromRestaurant(Restaurant restaurant)
     {
@@ -14,6 +18,10 @@ public sealed record RestaurantResponse(
             restaurant.Id,
             restaurant.Name,
             restaurant.PhoneNumber,
-            restaurant.Email);
+            restaurant.Email,
+            restaurant.WidgetPrimaryColor,
+            restaurant.WidgetAccentColor,
+            restaurant.WidgetWelcomeText,
+            restaurant.WidgetLogoUrl);
     }
 }

@@ -7,9 +7,9 @@
 
 <section class="page-header">
     <div>
-        <p class="eyebrow">Beheer</p>
-        <h1>Bezorgkoppelingen</h1>
-        <p class="text-muted mb-0">Koppel Thuisbezorgd en Uber Eats zodat hun orders in je dashboard verschijnen.</p>
+        <p class="eyebrow">Integraties</p>
+        <h1>Bezorgplatformen</h1>
+        <p class="text-muted mb-0">Bereid een cloudkoppeling of lokale kassaconnector voor.</p>
     </div>
 </section>
 
@@ -21,13 +21,43 @@
 @if (_justConnected is not null)
 {
     <div class="alert alert-success">
-        <strong>@ProviderLabel(_justConnected.Provider) gekoppeld.</strong>
-        Bewaar onderstaand secret nu — het wordt maar één keer getoond.
+        <strong>Technische toegang voor @ProviderLabel(_justConnected.Provider) aangemaakt.</strong>
+        Bewaar het secret nu; het wordt maar één keer getoond.
         <div class="secret-box">
-            <div><span class="secret-label">Webhook-URL</span><code>@_justConnected.WebhookUrl</code></div>
-            <div><span class="secret-label">Secret (header <code>X-Webhook-Secret</code>)</span><code>@_justConnected.Secret</code></div>
+            <div><span class="secret-label">Secret</span><code>@_justConnected.Secret</code></div>
         </div>
     </div>
+
+    @if (_justConnected.Provider == DeliveryProvider.Thuisbezorgd)
+    {
+        <div class="integration-method-grid">
+            <section class="integration-method-card">
+                <span class="status-pill status-new">Cloudroute</span>
+                <h2>JET Connect ingress</h2>
+                <p>Laat Just Eat Takeaway orders naar dit publieke HTTPS-endpoint sturen tijdens partner-onboarding.</p>
+                <div class="secret-box">
+                    <div><span class="secret-label">Order-endpoint</span><code>@_justConnected.JetConnectOrderUrl</code></div>
+                    <div><span class="secret-label">Authenticatieheader</span><code>X-JET-Connect-Secret: @_justConnected.Secret</code></div>
+                </div>
+            </section>
+            <section class="integration-method-card">
+                <span class="status-pill status-confirmed">Lokale route</span>
+                <h2>T-Connect XML Connector</h2>
+                <p>Installeer de Zambiq connector op dezelfde Windows-pc als de officiële T-Connect XML Client.</p>
+                <div class="secret-box">
+                    <div><span class="secret-label">Upload-endpoint</span><code>@_justConnected.TConnectOrderUrl</code></div>
+                    <div><span class="secret-label">Startcommando</span><code>dotnet run --project src/Booking.TConnectConnector -- --api-url [publieke-api-url] --secret [secret]</code></div>
+                </div>
+            </section>
+        </div>
+    }
+    else
+    {
+        <div class="secret-box mb-3">
+            <div><span class="secret-label">Generiek testwebhook-endpoint</span><code>@_justConnected.WebhookUrl</code></div>
+            <div><span class="secret-label">Authenticatieheader</span><code>X-Webhook-Secret: @_justConnected.Secret</code></div>
+        </div>
+    }
 }
 
 @if (_isLoading)
@@ -46,11 +76,11 @@ else
                         <div class="text-muted small">
                             @if (!integration.Connected)
                             {
-                                <span>Nog niet gekoppeld</span>
+                                <span>Nog niet technisch geconfigureerd</span>
                             }
                             else if (integration.Enabled)
                             {
-                                <span class="leave-badge leave-badge-approved">Actief</span>
+                                <span class="leave-badge leave-badge-approved">Toegang actief</span>
                             }
                             else
                             {
@@ -61,7 +91,7 @@ else
                     <div class="form-actions">
                         <button class="btn btn-primary btn-sm" @onclick="() => ConnectAsync(integration.Provider)"
                                 disabled="@_busy">
-                            @(integration.Connected ? "Nieuw secret" : "Koppelen")
+                            @(integration.Connected ? "Secret vernieuwen" : "Technische toegang maken")
                         </button>
                         @if (integration.Connected && integration.Enabled)
                         {
@@ -75,8 +105,9 @@ else
             }
         </div>
         <p class="text-muted small mt-3">
-            Geef de webhook-URL en het secret door aan het platform (of test met <code>curl</code>).
-            Een echte live-koppeling vereist een partner-account bij het platform.
+            Een actieve technische toegang betekent niet automatisch dat het platform live gekoppeld is.
+            Voor de cloudroute zijn JET Connect-partner-onboarding en certificering vereist.
+            Voor de lokale route moet Thuisbezorgd de T-Connect XML Client voor het restaurant activeren.
         </p>
     </section>
 }

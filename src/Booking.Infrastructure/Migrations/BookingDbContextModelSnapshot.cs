@@ -22,6 +22,353 @@ namespace Booking.Infrastructure.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AccountingEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Checksum")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<long>("Length")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountingEntryId");
+
+                    b.HasIndex("RestaurantId", "AccountingEntryId");
+
+                    b.ToTable("AccountingAttachments", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "EntryType", "Name")
+                        .IsUnique();
+
+                    b.ToTable("AccountingCategories", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AccessExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EncryptedAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EncryptedRefreshToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("LastSyncedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "Provider", "ExternalId")
+                        .IsUnique();
+
+                    b.ToTable("AccountingConnections", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ConfirmedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CorrectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CorrectionOfEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateOnly>("EntryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EntryType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("GrossAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SourceTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CorrectionOfEntryId");
+
+                    b.HasIndex("SourceTransactionId");
+
+                    b.HasIndex("RestaurantId", "EntryDate");
+
+                    b.ToTable("AccountingEntries", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingImportBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FileChecksum")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("ImportKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("MappingJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "FileChecksum")
+                        .IsUnique();
+
+                    b.ToTable("AccountingImportBatches", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingMatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BankSourceTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("MatchedSourceTransactionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BankSourceTransactionId");
+
+                    b.HasIndex("MatchedSourceTransactionId");
+
+                    b.HasIndex("RestaurantId", "BankSourceTransactionId")
+                        .IsUnique();
+
+                    b.ToTable("AccountingMatches", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingSourceTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AccountingEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("ImportBatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RawPayload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("TransactionDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportBatchId");
+
+                    b.HasIndex("RestaurantId", "Fingerprint")
+                        .IsUnique();
+
+                    b.HasIndex("RestaurantId", "Status", "TransactionDate");
+
+                    b.ToTable("AccountingSourceTransactions", (string)null);
+                });
+
             modelBuilder.Entity("Booking.Domain.Customers.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -151,6 +498,115 @@ namespace Booking.Infrastructure.Migrations
                     b.ToTable("DeliveryOrders", (string)null);
                 });
 
+            modelBuilder.Entity("Booking.Domain.GoogleBusiness.GoogleBusinessConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AccessExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EncryptedAccessToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EncryptedRefreshToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GbpAccountName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GbpLocationName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("LastHoursSyncAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastReviewSyncAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastSyncError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("OAuthState")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId")
+                        .IsUnique();
+
+                    b.ToTable("GoogleBusinessConnections", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.GoogleBusiness.GoogleReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ReplyComment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ReplyUpdateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReviewName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReviewerDisplayName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("StarRating")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdateTime")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "CreateTime");
+
+                    b.HasIndex("RestaurantId", "ReviewName")
+                        .IsUnique();
+
+                    b.ToTable("GoogleReviews", (string)null);
+                });
+
             modelBuilder.Entity("Booking.Domain.Notifications.NotificationLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -222,9 +678,14 @@ namespace Booking.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<Guid?>("TableId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("TableId");
 
                     b.HasIndex("RestaurantId", "ReservationDateTime");
 
@@ -277,9 +738,53 @@ namespace Booking.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("WidgetAccentColor")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)")
+                        .HasDefaultValue("#b97742");
+
+                    b.Property<string>("WidgetLogoUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("WidgetPrimaryColor")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)")
+                        .HasDefaultValue("#1f6655");
+
+                    b.Property<string>("WidgetWelcomeText")
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Restaurants", (string)null);
+                });
+
+            modelBuilder.Entity("Booking.Domain.Restaurants.WidgetAllowedOrigin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "Origin")
+                        .IsUnique();
+
+                    b.ToTable("WidgetAllowedOrigins", (string)null);
                 });
 
             modelBuilder.Entity("Booking.Domain.Scheduling.LeaveRequest", b =>
@@ -388,6 +893,57 @@ namespace Booking.Infrastructure.Migrations
                     b.ToTable("StaffAvailabilities", (string)null);
                 });
 
+            modelBuilder.Entity("Booking.Domain.Tables.Table", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("PosX")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("PosY")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("RestaurantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Rotation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Section")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Shape")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RestaurantId", "IsActive");
+
+                    b.ToTable("Tables", (string)null);
+                });
+
             modelBuilder.Entity("Booking.Infrastructure.Identity.ApplicationUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -412,6 +968,10 @@ namespace Booking.Infrastructure.Migrations
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
+
+                    b.Property<decimal?>("HourlyWage")
+                        .HasPrecision(9, 2)
+                        .HasColumnType("decimal(9,2)");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -595,6 +1155,147 @@ namespace Booking.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingAttachment", b =>
+                {
+                    b.HasOne("Booking.Domain.Accounting.AccountingEntry", null)
+                        .WithMany()
+                        .HasForeignKey("AccountingEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingCategory", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingConnection", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingEntry", b =>
+                {
+                    b.HasOne("Booking.Domain.Accounting.AccountingEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CorrectionOfEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Domain.Accounting.AccountingSourceTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("SourceTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.OwnsMany("Booking.Domain.Accounting.AccountingEntrySplit", "Splits", b1 =>
+                        {
+                            b1.Property<Guid>("AccountingEntryId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<Guid?>("CategoryId")
+                                .HasColumnType("uniqueidentifier");
+
+                            b1.Property<decimal>("DeductibleVatAmount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("GrossAmount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("NetAmount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<decimal>("VatAmount")
+                                .HasPrecision(18, 2)
+                                .HasColumnType("decimal(18,2)");
+
+                            b1.Property<int>("VatRate")
+                                .HasColumnType("int");
+
+                            b1.HasKey("AccountingEntryId", "__synthesizedOrdinal");
+
+                            b1.ToTable("AccountingEntries");
+
+                            b1
+                                .ToJson("Splits")
+                                .HasColumnType("nvarchar(max)");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AccountingEntryId");
+                        });
+
+                    b.Navigation("Splits");
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingImportBatch", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingMatch", b =>
+                {
+                    b.HasOne("Booking.Domain.Accounting.AccountingSourceTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("BankSourceTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Domain.Accounting.AccountingSourceTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("MatchedSourceTransactionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Accounting.AccountingSourceTransaction", b =>
+                {
+                    b.HasOne("Booking.Domain.Accounting.AccountingImportBatch", null)
+                        .WithMany()
+                        .HasForeignKey("ImportBatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Booking.Domain.Delivery.DeliveryIntegration", b =>
                 {
                     b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
@@ -648,6 +1349,24 @@ namespace Booking.Infrastructure.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("Booking.Domain.GoogleBusiness.GoogleBusinessConnection", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.GoogleBusiness.GoogleReview", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Booking.Domain.Notifications.NotificationLog", b =>
                 {
                     b.HasOne("Booking.Domain.Reservations.Reservation", null)
@@ -677,6 +1396,11 @@ namespace Booking.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Booking.Domain.Tables.Table", null)
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Customer");
                 });
 
@@ -684,6 +1408,15 @@ namespace Booking.Infrastructure.Migrations
                 {
                     b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
                         .WithMany("OpeningHours")
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Restaurants.WidgetAllowedOrigin", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
                         .HasForeignKey("RestaurantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -708,6 +1441,15 @@ namespace Booking.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Booking.Domain.Scheduling.StaffAvailability", b =>
+                {
+                    b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
+                        .WithMany()
+                        .HasForeignKey("RestaurantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Booking.Domain.Tables.Table", b =>
                 {
                     b.HasOne("Booking.Domain.Restaurants.Restaurant", null)
                         .WithMany()

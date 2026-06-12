@@ -1,0 +1,280 @@
+@page "/admin/tafels"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject TableApiClient TableApi
+
+<PageTitle>Tafels</PageTitle>
+
+<PageHeader Eyebrow="Reserveringsbeheer"
+            Title="Tafels"
+            Description="Beheer de tafels en secties van je restaurant.">
+    <Actions>
+        <a class="btn btn-quiet btn-sm" href="/admin/tafels/plattegrond">Plattegrond</a>
+        <a class="btn btn-quiet" href="/admin/reservations">Reserveringen</a>
+    </Actions>
+</PageHeader>
+
+@if (!string.IsNullOrWhiteSpace(_successMessage))
+{
+    <div class="alert alert-success">@_successMessage</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+
+<div class="responsive-grid staff-layout">
+    <SectionCard Title="@(_editingTableId is null ? "Tafel toevoegen" : "Tafel bewerken")"
+                 Subtitle="@(_editingTableId is null ? "Voeg een tafel of zitplek toe." : "Pas naam, capaciteit of sectie aan.")">
+        <EditForm Model="_form" FormName="table-form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="form-field">
+                <label for="table-name">Naam / nummer</label>
+                <InputText id="table-name" class="form-control" placeholder="bijv. T01, Bar 2" @bind-Value="_form.Name" />
+            </div>
+
+            <div class="form-field">
+                <label for="table-capacity">Capaciteit <span class="optional-label">personen</span></label>
+                <InputNumber id="table-capacity" class="form-control" min="1" max="50" @bind-Value="_form.Capacity" />
+            </div>
+
+            <div class="form-field">
+                <label for="table-section">Sectie <span class="optional-label">optioneel</span></label>
+                <InputText id="table-section" class="form-control" placeholder="bijv. Terras, Raam, Binnen" @bind-Value="_form.Section" />
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-primary w-100" type="submit" disabled="@_isSaving">
+                    @(_isSaving
+                        ? "Opslaan..."
+                        : _editingTableId is null ? "Tafel toevoegen" : "Wijzigingen opslaan")
+                </button>
+                @if (_editingTableId is not null)
+                {
+                    <button class="btn btn-quiet w-100" type="button" @onclick="CancelEdit">Annuleren</button>
+                }
+            </div>
+        </EditForm>
+    </SectionCard>
+
+    <div>
+        @if (_isLoading)
+        {
+            <div class="loading-state">Tafels laden...</div>
+        }
+        else if (_tables.Count == 0)
+        {
+            <EmptyState Icon="icon-table"
+                        Title="Nog geen tafels"
+                        Description="Voeg je eerste tafel toe via het formulier." />
+        }
+        else
+        {
+            @foreach (var group in TableGroups)
+            {
+                <SectionCard Title="@(group.Key ?? "Geen sectie")" CssClass="mb-4">
+                    <div class="list-stack">
+                        @foreach (var table in group)
+                        {
+                            <div class="list-row @(table.IsActive ? "" : "list-row-muted")">
+                                <div>
+                                    <strong>@table.Name</strong>
+                                    @if (!table.IsActive)
+                                    {
+                                        <StatusBadge Label="Inactief" Tone="StatusTone.Neutral" CssClass="ms-2" />
+                                    }
+                                    <div class="text-muted small">@table.Capacity @(table.Capacity == 1 ? "persoon" : "personen")</div>
+                                </div>
+                                <div class="list-row-actions">
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            type="button"
+                                            disabled="@_updatingTableIds.Contains(table.Id)"
+                                            @onclick="() => StartEdit(table)">
+                                        Bewerken
+                                    </button>
+                                    @if (table.IsActive)
+                                    {
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                type="button"
+                                                disabled="@_updatingTableIds.Contains(table.Id)"
+                                                @onclick="() => DeactivateAsync(table.Id)">
+                                            Deactiveren
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                type="button"
+                                                disabled="@_updatingTableIds.Contains(table.Id)"
+                                                @onclick="() => ReactivateAsync(table.Id)">
+                                            Heractiveren
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </SectionCard>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<TableDto> _tables = [];
+    private readonly HashSet<Guid> _updatingTableIds = [];
+    private Guid? _editingTableId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private readonly TableForm _form = new();
+
+    private IEnumerable<IGrouping<string?, TableDto>> TableGroups =>
+        _tables.GroupBy(table => table.Section).OrderBy(g => g.Key ?? "zzz");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try { _tables = (await TableApi.GetAllAsync()).ToList(); }
+        catch (ApiClientException exception) { _errorMessage = exception.Message; }
+        finally { _isLoading = false; }
+    }
+
+    private void StartEdit(TableDto table)
+    {
+        _editingTableId = table.Id;
+        _form.Name = table.Name;
+        _form.Capacity = table.Capacity;
+        _form.Section = table.Section;
+        _errorMessage = null;
+        _successMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingTableId = null;
+        _form.Reset();
+        _errorMessage = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSaving = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            if (_editingTableId is null)
+            {
+                var created = await TableApi.CreateAsync(
+                    new CreateTableRequest(_form.Name!, _form.Capacity, _form.Section));
+                _tables.Insert(0, created);
+                _successMessage = $"Tafel \"{created.Name}\" toegevoegd.";
+            }
+            else
+            {
+                var updated = await TableApi.UpdateAsync(
+                    _editingTableId.Value,
+                    new UpdateTableRequest(_form.Name!, _form.Capacity, _form.Section));
+                var index = _tables.FindIndex(t => t.Id == _editingTableId.Value);
+                if (index >= 0) _tables[index] = updated;
+                _editingTableId = null;
+                _successMessage = $"Tafel \"{updated.Name}\" bijgewerkt.";
+            }
+
+            _form.Reset();
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeactivateAsync(Guid tableId)
+    {
+        _updatingTableIds.Add(tableId);
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            await TableApi.DeactivateAsync(tableId);
+            var index = _tables.FindIndex(t => t.Id == tableId);
+            if (index >= 0)
+            {
+                var table = _tables[index];
+                _tables[index] = table with { IsActive = false };
+            }
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _updatingTableIds.Remove(tableId);
+        }
+    }
+
+    private async Task ReactivateAsync(Guid tableId)
+    {
+        _updatingTableIds.Add(tableId);
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            await TableApi.ReactivateAsync(tableId);
+            var index = _tables.FindIndex(t => t.Id == tableId);
+            if (index >= 0)
+            {
+                var table = _tables[index];
+                _tables[index] = table with { IsActive = true };
+            }
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _updatingTableIds.Remove(tableId);
+        }
+    }
+
+    private sealed class TableForm
+    {
+        [Required(ErrorMessage = "Naam is verplicht.")]
+        [MaxLength(50, ErrorMessage = "Naam mag maximaal 50 tekens zijn.")]
+        public string? Name { get; set; }
+
+        [Range(1, 50, ErrorMessage = "Capaciteit moet tussen 1 en 50 zijn.")]
+        public int Capacity { get; set; } = 2;
+
+        [MaxLength(50, ErrorMessage = "Sectie mag maximaal 50 tekens zijn.")]
+        public string? Section { get; set; }
+
+        public void Reset()
+        {
+            Name = null;
+            Capacity = 2;
+            Section = null;
+        }
+    }
+}

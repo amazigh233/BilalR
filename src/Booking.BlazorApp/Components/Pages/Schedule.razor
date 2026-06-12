@@ -4,6 +4,8 @@
 @using System.Globalization
 @inject ShiftApiClient ShiftApi
 @inject StaffApiClient StaffApi
+@inject LeaveApiClient LeaveApi
+@inject AnalyticsApiClient AnalyticsApi
 
 <PageTitle>Rooster</PageTitle>
 
@@ -36,6 +38,45 @@ else
     }
     else
     {
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-card-label">Geplande uren</span>
+                <strong>@Hours(TotalWeekHours)</strong>
+                <span class="stat-card-support">@_shifts.Count @(_shifts.Count == 1 ? "dienst" : "diensten") deze week</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Loonkosten</span>
+                @if (HasAnyWage)
+                {
+                    <strong>@(AllWagesSet ? Money(WeekLaborCost) : $"≥ {Money(WeekLaborCost)}")</strong>
+                    <span class="stat-card-support">@(AllWagesSet ? "op basis van ingestelde uurlonen" : "niet alle uurlonen zijn ingesteld")</span>
+                }
+                else
+                {
+                    <strong>—</strong>
+                    <span class="stat-card-support">Stel uurlonen in bij <a href="/admin/staff">Medewerkers</a></span>
+                }
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Ingeroosterd</span>
+                <strong>@StaffScheduledCount<span class="stat-card-fraction">/@_staff.Count</span></strong>
+                <span class="stat-card-support">medewerkers met een dienst</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Verwachte gasten</span>
+                <strong>@(_analytics?.TotalGuests.ToString() ?? "—")</strong>
+                <span class="stat-card-support">@(_analytics is null ? "drukte niet beschikbaar" : $"{_analytics.TotalReservations} reserveringen deze week")</span>
+            </div>
+        </div>
+
+        @if (PendingLeaveThisWeek.Count > 0)
+        {
+            <div class="alert alert-warning leave-callout">
+                <strong>@PendingLeaveThisWeek.Count openstaande verlofaanvra@(PendingLeaveThisWeek.Count == 1 ? "ag" : "gen")</strong>
+                raken deze week. <a href="/admin/leave">Beoordeel aanvragen</a> voordat je het rooster afrondt.
+            </div>
+        }
+
         <section class="content-section schedule-section">
             <div class="schedule-grid">
                 <div class="schedule-cell schedule-head">Medewerker</div>
@@ -46,10 +87,21 @@ else
 
                 @foreach (var member in _staff)
                 {
-                    <div class="schedule-cell schedule-staff">@member.Name</div>
+                    var memberHours = HoursForStaff(member.UserId);
+                    <div class="schedule-cell schedule-staff">
+                        @member.Name
+                        <span class="schedule-staff-meta">
+                            @Hours(memberHours)@(member.HourlyWage is { } wage && memberHours > 0 ? $" · {Money((decimal)memberHours * wage)}" : null)
+                        </span>
+                    </div>
                     @foreach (var day in WeekDays)
                     {
-                        <div class="schedule-cell">
+                        var onLeave = IsOnLeave(member.UserId, day);
+                        <div class="schedule-cell @(onLeave ? "has-leave" : null)">
+                            @if (onLeave)
+                            {
+                                <span class="leave-chip" title="Goedgekeurd verlof">Verlof</span>
+                            }
                             @foreach (var shift in ShiftsFor(member.UserId, day))
                             {
                                 <div class="shift-chip" @onclick="() => StartEdit(shift)">
@@ -61,8 +113,46 @@ else
                         </div>
                     }
                 }
+
+                <div class="schedule-cell schedule-staff schedule-total">Totaal</div>
+                @foreach (var day in WeekDays)
+                {
+                    var dayHours = HoursForDay(day);
+                    <div class="schedule-cell schedule-total">@(dayHours > 0 ? Hours(dayHours) : "—")</div>
+                }
             </div>
         </section>
+
+        @if (_analytics is not null)
+        {
+            <SectionCard Title="Bezetting vs. drukte"
+                         Subtitle="Geplande uren naast verwachte reserveringen per dag. Valt een drukke dag samen met weinig uren, plan dan extra in.">
+                <div class="chart-legend">
+                    <span class="chart-legend-item"><i class="chart-legend-swatch chart-swatch-revenue"></i> Geplande uren</span>
+                    <span class="chart-legend-item"><i class="chart-legend-swatch chart-swatch-expenses"></i> Reserveringen</span>
+                </div>
+                <div class="coverage-chart">
+                    @foreach (var day in WeekDays)
+                    {
+                        var dayHours = HoursForDay(day);
+                        var reservations = ReservationsForDay(day);
+                        <div class="coverage-row">
+                            <span class="coverage-day">@DutchDay(day.DayOfWeek) <small class="text-muted">@day.ToString("dd-MM")</small></span>
+                            <div class="coverage-bars">
+                                <div class="coverage-bar">
+                                    <div class="bar-track"><div class="bar-fill" style="width: @BarWidth(dayHours, MaxDayHours)"></div></div>
+                                    <span class="coverage-value">@Hours(dayHours)</span>
+                                </div>
+                                <div class="coverage-bar">
+                                    <div class="bar-track"><div class="bar-fill bar-fill-expenses" style="width: @BarWidth(reservations, MaxDayReservations)"></div></div>
+                                    <span class="coverage-value">@reservations res.</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </SectionCard>
+        }
 
         <section class="content-section">
             <div class="section-heading">
@@ -124,6 +214,8 @@ else
 @code {
     private List<StaffUserDto> _staff = [];
     private List<ShiftDto> _shifts = [];
+    private List<LeaveRequestDto> _leave = [];
+    private AnalyticsDto? _analytics;
     private DateOnly _weekStart = CurrentWeekMonday();
     private bool _isLoading = true;
     private string? _errorMessage;
@@ -153,16 +245,84 @@ else
         {
             _staff = (await StaffApi.GetAllAsync()).ToList();
             _shifts = (await ShiftApi.GetForRestaurantAsync(_weekStart, _weekStart.AddDays(6))).ToList();
+            _leave = (await LeaveApi.GetForRestaurantAsync()).ToList();
         }
         catch (ApiClientException exception)
         {
             _errorMessage = exception.Message;
+        }
+
+        try
+        {
+            _analytics = await AnalyticsApi.GetAsync(_weekStart, _weekStart.AddDays(6));
+        }
+        catch (ApiClientException)
+        {
+            _analytics = null;
         }
         finally
         {
             _isLoading = false;
         }
     }
+
+    private static double ShiftHours(ShiftDto shift) =>
+        (shift.EndTime - shift.StartTime).TotalHours;
+
+    private double TotalWeekHours => _shifts.Sum(ShiftHours);
+
+    private double HoursForStaff(Guid staffUserId) =>
+        _shifts.Where(shift => shift.StaffUserId == staffUserId).Sum(ShiftHours);
+
+    private double HoursForDay(DateOnly day) =>
+        _shifts.Where(shift => shift.ShiftDate == day).Sum(ShiftHours);
+
+    private double MaxDayHours => Math.Max(WeekDays.Max(HoursForDay), 0.0001);
+
+    private int ReservationsForDay(DateOnly day) =>
+        _analytics?.PerDay.FirstOrDefault(item => item.Date == day)?.Count ?? 0;
+
+    private int MaxDayReservations => Math.Max(WeekDays.Max(ReservationsForDay), 1);
+
+    private int StaffScheduledCount =>
+        _shifts.Select(shift => shift.StaffUserId).Distinct().Count();
+
+    private bool HasAnyWage => _staff.Any(member => member.HourlyWage.HasValue);
+
+    private bool AllWagesSet =>
+        _shifts.Select(shift => shift.StaffUserId).Distinct()
+            .All(staffId => _staff.FirstOrDefault(member => member.UserId == staffId)?.HourlyWage is not null);
+
+    private decimal WeekLaborCost =>
+        _shifts.Sum(shift =>
+            _staff.FirstOrDefault(member => member.UserId == shift.StaffUserId)?.HourlyWage is { } wage
+                ? (decimal)ShiftHours(shift) * wage
+                : 0m);
+
+    private bool IsOnLeave(Guid staffUserId, DateOnly day) =>
+        _leave.Any(leave =>
+            leave.StaffUserId == staffUserId &&
+            leave.Status == LeaveStatus.Approved &&
+            leave.FromDate <= day &&
+            day <= leave.ToDate);
+
+    private List<LeaveRequestDto> PendingLeaveThisWeek =>
+        _leave.Where(leave =>
+                leave.Status == LeaveStatus.Pending &&
+                leave.FromDate <= _weekStart.AddDays(6) &&
+                _weekStart <= leave.ToDate)
+            .ToList();
+
+    private static string Hours(double value) =>
+        $"{value.ToString("0.#", CultureInfo.GetCultureInfo("nl-NL"))} u";
+
+    private static string Money(decimal value) =>
+        value.ToString("C", CultureInfo.GetCultureInfo("nl-NL"));
+
+    private static string BarWidth(double value, double max) =>
+        max <= 0 ? "0%" : $"{Math.Clamp(Math.Round(value / max * 100), 2, 100).ToString(CultureInfo.InvariantCulture)}%";
+
+    private static string BarWidth(int value, int max) => BarWidth((double)value, max);
 
     private async Task PreviousWeek()
     {

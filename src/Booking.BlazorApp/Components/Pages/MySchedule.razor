@@ -10,7 +10,13 @@
     <div>
         <p class="eyebrow">Rooster</p>
         <h1>Mijn rooster</h1>
-        <p class="text-muted mb-0">Jouw ingeplande diensten.</p>
+        <p class="text-muted mb-0">
+            Jouw ingeplande diensten.
+            @if (!_isLoading && _shifts.Count > 0)
+            {
+                <strong>Deze week: @WeekHours, @_shifts.Count @(_shifts.Count == 1 ? "dienst" : "diensten").</strong>
+            }
+        </p>
     </div>
     <div class="week-nav">
         <button class="btn btn-outline-secondary btn-sm" @onclick="PreviousWeek">&laquo; Vorige</button>
@@ -71,6 +77,15 @@ else
     private string? _errorMessage;
 
     private IEnumerable<DateOnly> WeekDays => Enumerable.Range(0, 7).Select(offset => _weekStart.AddDays(offset));
+
+    private string WeekHours
+    {
+        get
+        {
+            var total = _shifts.Sum(shift => (shift.EndTime - shift.StartTime).TotalHours);
+            return $"{total.ToString("0.#", CultureInfo.GetCultureInfo("nl-NL"))} uur";
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

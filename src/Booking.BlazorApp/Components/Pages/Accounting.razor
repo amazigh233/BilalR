@@ -1,0 +1,208 @@
+@page "/admin/boekhouding"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@using System.Globalization
+@inject AccountingApiClient AccountingApi
+@inject IJSRuntime JS
+
+<PageTitle>Boekhouding</PageTitle>
+
+<PageHeader Eyebrow="Financien" Title="Boekhouding" Description="Een rustig periodeoverzicht van omzet, kosten, resultaat en btw.">
+    <Actions>
+        <a class="btn btn-outline-secondary btn-sm" href="/admin/boekhouding/inbox">Controle-inbox</a>
+        <a class="btn btn-primary btn-sm" href="/admin/boekhouding/boekingen">Nieuwe boeking</a>
+    </Actions>
+</PageHeader>
+
+<SectionCard CssClass="analytics-filter-card" BodyCssClass="analytics-filters">
+    <div class="form-field"><label>Van</label><input type="date" class="form-control" value="@Date(_from)" @onchange="FromChanged" /></div>
+    <div class="form-field"><label>Tot en met</label><input type="date" class="form-control" value="@Date(_to)" @onchange="ToChanged" /></div>
+    <div class="form-actions">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="DownloadCsvAsync">CSV</button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="DownloadPdfAsync">PDF</button>
+    </div>
+</SectionCard>
+
+@if (!string.IsNullOrWhiteSpace(_error)) { <div class="alert alert-danger">@_error</div> }
+else if (_loading) { <div class="loading-state">Boekhouding laden...</div> }
+else if (_summary is not null)
+{
+    <div class="stats-grid">
+        <div class="stat-card">
+            <span class="stat-card-label">Omzet</span>
+            <strong>@Money(_summary.Revenue)</strong>
+            <span class="stat-card-support">bevestigde verkoopboekingen</span>
+            @Delta(_summary.Revenue, _summary.Previous?.Revenue, increaseIsGood: true)
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-label">Kosten</span>
+            <strong>@Money(_summary.Expenses)</strong>
+            <span class="stat-card-support">bevestigde kostenboekingen</span>
+            @Delta(_summary.Expenses, _summary.Previous?.Expenses, increaseIsGood: false)
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-label">Resultaat</span>
+            <strong>@Money(_summary.Result)</strong>
+            <span class="stat-card-support">omzet minus kosten</span>
+            @Delta(_summary.Result, _summary.Previous?.Result, increaseIsGood: true)
+        </div>
+        <div class="stat-card">
+            <span class="stat-card-label">Open controle</span>
+            <strong>@_summary.OpenReviewItems</strong>
+            <span class="stat-card-support">regels wachten op beoordeling</span>
+        </div>
+    </div>
+
+    <SectionCard Title="Verloop" Subtitle="@TimelineSubtitle">
+        <TrendChart Points="@(_summary.Timeline.ToList())" />
+    </SectionCard>
+
+    <div class="category-chart-grid">
+        <SectionCard Title="Omzetcategorieën" Subtitle="Bruto per categorie in de gekozen periode">
+            @{ var revenueCategories = CategoriesOf(AccountingEntryType.Revenue); }
+            @if (revenueCategories.Count == 0)
+            {
+                <p class="text-muted small mb-0">Nog geen omzetboekingen in deze periode.</p>
+            }
+            else
+            {
+                <div class="bar-chart">
+                    @foreach (var category in revenueCategories)
+                    {
+                        <div class="bar-row bar-row-wide">
+                            <span class="bar-label">@category.CategoryName</span>
+                            <div class="bar-track"><div class="bar-fill" style="width: @BarWidth(category.GrossAmount, revenueCategories[0].GrossAmount)"></div></div>
+                            <span class="bar-value">@Money(category.GrossAmount)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </SectionCard>
+
+        <SectionCard Title="Kostencategorieën" Subtitle="Bruto per categorie in de gekozen periode">
+            @{ var expenseCategories = CategoriesOf(AccountingEntryType.Expense); }
+            @if (expenseCategories.Count == 0)
+            {
+                <p class="text-muted small mb-0">Nog geen kostenboekingen in deze periode.</p>
+            }
+            else
+            {
+                <div class="bar-chart">
+                    @foreach (var category in expenseCategories)
+                    {
+                        <div class="bar-row bar-row-wide">
+                            <span class="bar-label">@category.CategoryName</span>
+                            <div class="bar-track"><div class="bar-fill bar-fill-expenses" style="width: @BarWidth(category.GrossAmount, expenseCategories[0].GrossAmount)"></div></div>
+                            <span class="bar-value">@Money(category.GrossAmount)</span>
+                        </div>
+                    }
+                </div>
+            }
+        </SectionCard>
+    </div>
+
+    <SectionCard Title="Concept-btw-overzicht" Subtitle="Controleer dit overzicht altijd met je boekhouder voordat je aangifte doet.">
+        <div class="table-responsive">
+            <table class="table">
+                <thead><tr><th>Tarief</th><th>Omzet bruto</th><th>Verschuldigd</th><th>Kosten bruto</th><th>Voorbelasting</th></tr></thead>
+                <tbody>
+                @foreach (var vat in _summary.Vat)
+                {
+                    <tr><td>@vat.VatRate%</td><td>@Money(vat.RevenueGross)</td><td>@Money(vat.VatDue)</td><td>@Money(vat.ExpenseGross)</td><td>@Money(vat.DeductibleVat)</td></tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mb-0">Btw-saldo: <strong>@Money(_summary.VatBalance)</strong></p>
+    </SectionCard>
+}
+
+@code {
+    private DateOnly _from = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateOnly _to = DateOnly.FromDateTime(DateTime.Today);
+    private AccountingSummaryDto? _summary;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true; _error = null;
+        try { _summary = await AccountingApi.GetSummaryAsync(_from, _to); }
+        catch (ApiClientException ex) { _error = ex.Message; }
+        finally { _loading = false; }
+    }
+
+    private async Task FromChanged(ChangeEventArgs e) { if (DateOnly.TryParse(e.Value?.ToString(), out var value)) { _from = value; await LoadAsync(); } }
+    private async Task ToChanged(ChangeEventArgs e) { if (DateOnly.TryParse(e.Value?.ToString(), out var value)) { _to = value; await LoadAsync(); } }
+
+    private async Task DownloadAsync(string format)
+    {
+        try
+        {
+            var bytes = await AccountingApi.DownloadExportAsync(format, _from, _to);
+            var extension = format == "pdf" ? "pdf" : "csv";
+            var contentType = format == "pdf" ? "application/pdf" : "text/csv";
+            await JS.InvokeVoidAsync("zambiqDownload.fromBase64", $"zambiq-boekhouding-{Date(_from)}-{Date(_to)}.{extension}", contentType, Convert.ToBase64String(bytes));
+        }
+        catch (ApiClientException ex) { _error = ex.Message; }
+    }
+
+    private Task DownloadCsvAsync() => DownloadAsync("csv");
+    private Task DownloadPdfAsync() => DownloadAsync("pdf");
+
+    private string TimelineSubtitle => _summary?.Previous is { } previous
+        ? $"Omzet en kosten per periode · vergeleken met {previous.FromDate.ToString("d MMM", DutchCulture)} – {previous.ToDate.ToString("d MMM yyyy", DutchCulture)}"
+        : "Omzet en kosten per periode";
+
+    private List<AccountingCategoryTotalDto> CategoriesOf(AccountingEntryType type) =>
+        _summary is null
+            ? []
+            : _summary.Categories
+                .Where(category => category.EntryType == type && category.GrossAmount != 0m)
+                .OrderByDescending(category => category.GrossAmount)
+                .ToList();
+
+    private static string BarWidth(decimal value, decimal max) =>
+        max <= 0m ? "0%" : $"{Math.Clamp(Math.Round((double)(value / max) * 100), 2, 100).ToString(CultureInfo.InvariantCulture)}%";
+
+    private static RenderFragment? Delta(decimal current, decimal? previousValue, bool increaseIsGood)
+    {
+        if (previousValue is not { } previous || previous == 0m)
+        {
+            return null;
+        }
+
+        var change = (current - previous) / Math.Abs(previous);
+        var percentage = Math.Round(Math.Abs(change) * 100);
+        if (percentage == 0m)
+        {
+            return builder =>
+            {
+                builder.OpenElement(0, "span");
+                builder.AddAttribute(1, "class", "stat-card-delta delta-neutral");
+                builder.AddContent(2, "Gelijk aan vorige periode");
+                builder.CloseElement();
+            };
+        }
+
+        var isIncrease = change > 0m;
+        var isGood = isIncrease == increaseIsGood;
+        var arrow = isIncrease ? "▲" : "▼";
+        var text = $"{arrow} {percentage.ToString("0", DutchCulture)}% t.o.v. vorige periode";
+
+        return builder =>
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", $"stat-card-delta {(isGood ? "delta-positive" : "delta-negative")}");
+            builder.AddContent(2, text);
+            builder.CloseElement();
+        };
+    }
+
+    private static readonly CultureInfo DutchCulture = CultureInfo.GetCultureInfo("nl-NL");
+
+    private static string Date(DateOnly value) => value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    private static string Money(decimal value) => value.ToString("C", DutchCulture);
+}

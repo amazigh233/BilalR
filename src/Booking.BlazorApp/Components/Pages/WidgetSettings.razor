@@ -1,0 +1,568 @@
+@page "/admin/widget"
+@attribute [Authorize(Roles = "Owner")]
+@rendermode InteractiveServer
+@inject RestaurantApiClient RestaurantApi
+@inject WidgetSettingsApiClient WidgetSettingsApi
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Booking widget</PageTitle>
+
+<PageHeader Eyebrow="Reserveringen"
+            Title="Booking widget"
+            Description="Plaats de reserveringservaring van Zambiq op je eigen website. De widget schaalt automatisch mee met de inhoud.">
+    <Actions>
+        @if (_restaurant is not null)
+        {
+            <a class="btn btn-outline-secondary" href="@PublicBookingUrl" target="_blank" rel="noopener">Publieke pagina openen</a>
+        }
+    </Actions>
+</PageHeader>
+
+@if (_isLoading)
+{
+    <div class="loading-state">Widgetgegevens laden...</div>
+}
+else if (!string.IsNullOrWhiteSpace(_errorMessage))
+{
+    <div class="alert alert-danger">@_errorMessage</div>
+}
+else if (_restaurant is not null)
+{
+    @if (!string.IsNullOrWhiteSpace(_copyMessage))
+    {
+        <div class="alert @(_copySucceeded ? "alert-success" : "alert-danger")" role="status">@_copyMessage</div>
+    }
+
+    <div class="widget-settings-grid">
+        <div class="widget-settings-column">
+            <SectionCard Title="Uitstraling"
+                         Subtitle="Pas de widget aan op je restaurant. Wijzigingen worden ook gebruikt op de publieke reserveringspagina.">
+                <Actions>
+                    <button class="btn btn-primary btn-sm"
+                            type="button"
+                            disabled="@_isSavingBranding"
+                            @onclick="SaveBrandingAsync">
+                        @(_isSavingBranding ? "Uitstraling opslaan..." : "Uitstraling opslaan")
+                    </button>
+                </Actions>
+                <ChildContent>
+                    @if (!string.IsNullOrWhiteSpace(_brandingMessage))
+                    {
+                        <div class="alert @(_brandingSaveSucceeded ? "alert-success" : "alert-danger") mb-3" role="status">
+                            @_brandingMessage
+                        </div>
+                    }
+
+                    <div class="widget-branding-grid">
+                        <div class="form-field">
+                            <label for="widget-primary-color">Primaire kleur</label>
+                            <div class="widget-color-field">
+                                <input id="widget-primary-color"
+                                       class="widget-color-input"
+                                       type="color"
+                                       @bind="_primaryColor" />
+                                <input class="form-control"
+                                       aria-label="Hexwaarde primaire kleur"
+                                       maxlength="7"
+                                       @bind="_primaryColor" />
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="widget-accent-color">Accentkleur</label>
+                            <div class="widget-color-field">
+                                <input id="widget-accent-color"
+                                       class="widget-color-input"
+                                       type="color"
+                                       @bind="_accentColor" />
+                                <input class="form-control"
+                                       aria-label="Hexwaarde accentkleur"
+                                       maxlength="7"
+                                       @bind="_accentColor" />
+                            </div>
+                        </div>
+
+                        <div class="form-field form-field-wide">
+                            <label for="widget-welcome-text">Welkomsttekst <span class="optional-label">optioneel</span></label>
+                            <textarea id="widget-welcome-text"
+                                      class="form-control"
+                                      rows="3"
+                                      maxlength="240"
+                                      placeholder="Vertel gasten kort wat ze kunnen verwachten."
+                                      @bind="_welcomeText"></textarea>
+                        </div>
+
+                        <div class="form-field form-field-wide">
+                            <label for="widget-logo-upload">Restaurantlogo <span class="optional-label">optioneel</span></label>
+                            <div class="widget-logo-upload">
+                                <div class="widget-logo-preview" style="@BrandingSwatchStyle">
+                                    @if (string.IsNullOrWhiteSpace(_logoUrl))
+                                    {
+                                        <span>@GetRestaurantInitial()</span>
+                                    }
+                                    else
+                                    {
+                                        <img src="@_logoUrl" alt="Huidig restaurantlogo" />
+                                    }
+                                </div>
+                                <div class="widget-logo-upload-copy">
+                                    <strong>Upload je eigen logo</strong>
+                                    <p>PNG, JPEG of WebP. Maximaal 2 MB. Een vierkante afbeelding werkt het mooist.</p>
+                                    <div class="widget-logo-actions">
+                                        <div class="widget-logo-picker">
+                                            <label class="btn btn-outline-secondary btn-sm @(_isUploadingLogo ? "disabled" : null)"
+                                                   for="widget-logo-upload">
+                                                @(_isUploadingLogo ? "Logo uploaden..." : "Logo kiezen")
+                                            </label>
+                                            <InputFile id="widget-logo-upload"
+                                                       class="widget-logo-file-input"
+                                                       accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                                                       disabled="@_isUploadingLogo"
+                                                       OnChange="UploadLogoAsync" />
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(_logoUrl))
+                                        {
+                                            <button class="btn btn-quiet btn-sm"
+                                                    type="button"
+                                                    disabled="@(_isUploadingLogo || _isDeletingLogo)"
+                                                    @onclick="DeleteLogoAsync">
+                                                @(_isDeletingLogo ? "Logo verwijderen..." : "Logo verwijderen")
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-field form-field-wide">
+                            <label for="widget-logo-url">Externe logo-URL <span class="optional-label">optioneel</span></label>
+                            <input id="widget-logo-url"
+                                   class="form-control"
+                                   type="url"
+                                   maxlength="500"
+                                   placeholder="https://www.restaurant.nl/logo.png"
+                                   @bind="_logoUrl" />
+                            <small class="widget-field-help">Alleen nodig als je liever een extern gehost logo gebruikt.</small>
+                        </div>
+                    </div>
+
+                    <div class="widget-branding-footer">
+                        <div class="widget-branding-swatch" style="@BrandingSwatchStyle" aria-hidden="true">
+                            <span></span>
+                        </div>
+                        <p>De preview rechts wordt na opslaan automatisch vernieuwd.</p>
+                        <button class="btn btn-quiet btn-sm" type="button" @onclick="ResetBranding">
+                            Herstel Zambiq-kleuren
+                        </button>
+                    </div>
+                </ChildContent>
+            </SectionCard>
+
+            <SectionCard Title="Toegestane websites"
+                         Subtitle="Alleen deze websites mogen de reserveringswidget van dit restaurant insluiten.">
+                <Actions>
+                    <button class="btn btn-primary btn-sm"
+                            type="button"
+                            disabled="@_isSavingOrigins"
+                            @onclick="SaveOriginsAsync">
+                        @(_isSavingOrigins ? "Websites opslaan..." : "Websites opslaan")
+                    </button>
+                </Actions>
+                <ChildContent>
+                    @if (!string.IsNullOrWhiteSpace(_originMessage))
+                    {
+                        <div class="alert @(_originSaveSucceeded ? "alert-success" : "alert-danger") mb-3" role="status">
+                            @_originMessage
+                        </div>
+                    }
+
+                    <div class="widget-origin-add">
+                        <div class="form-field mb-0">
+                            <label for="widget-origin">Website-origin</label>
+                            <input id="widget-origin"
+                                   class="form-control"
+                                   type="url"
+                                   placeholder="https://www.restaurant.nl"
+                                   @bind="_newOrigin"
+                                   @bind:event="oninput" />
+                        </div>
+                        <button class="btn btn-outline-secondary"
+                                type="button"
+                                @onclick="AddOrigin">
+                            Toevoegen
+                        </button>
+                    </div>
+                    <p class="widget-helper">Gebruik alleen het adres tot en met het domein, zonder pad. Voor lokaal WordPress is bijvoorbeeld <code>http://ecologicbv.local</code> geldig.</p>
+
+                    @if (_origins.Count == 0)
+                    {
+                        <div class="widget-origin-empty">
+                            Nog geen externe websites toegestaan. De preview binnen Zambiq blijft wel werken.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="widget-origin-list">
+                            @foreach (var origin in _origins)
+                            {
+                                <div class="widget-origin-row">
+                                    <div>
+                                        <span class="widget-origin-indicator" aria-hidden="true"></span>
+                                        <code>@origin</code>
+                                    </div>
+                                    <button class="btn btn-quiet btn-sm"
+                                            type="button"
+                                            aria-label="@($"Verwijder {origin}")"
+                                            @onclick="() => RemoveOrigin(origin)">
+                                        Verwijderen
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </SectionCard>
+
+            <SectionCard Title="Op elke website"
+                         Subtitle="Voeg deze twee regels toe op de plek waar gasten moeten reserveren.">
+                <Actions>
+                    <button class="btn btn-primary btn-sm" type="button" @onclick="CopyHtmlAsync">Code kopieren</button>
+                </Actions>
+                <ChildContent>
+                    <div class="widget-code-panel">
+                        <pre><code>@HtmlSnippet</code></pre>
+                    </div>
+                    <p class="widget-helper">De script-tag mag ook eenmalig onderaan je pagina staan. De widget vindt alle Zambiq-containers automatisch.</p>
+                </ChildContent>
+            </SectionCard>
+
+            <SectionCard Title="WordPress"
+                         Subtitle="Gebruik de Zambiq Booking-plugin en plaats deze shortcode in een pagina of bericht.">
+                <Actions>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="CopyWordPressAsync">Shortcode kopieren</button>
+                </Actions>
+                <ChildContent>
+                    <div class="widget-code-panel">
+                        <pre><code>@WordPressSnippet</code></pre>
+                    </div>
+                    <p class="widget-helper">Stel in WordPress eerst de widget host in op <code>@WidgetHost</code>.</p>
+                </ChildContent>
+            </SectionCard>
+
+            <SectionCard Title="Installatiegegevens"
+                         Subtitle="Deze gegevens zijn publiek en mogen met je webbouwer worden gedeeld.">
+                <ChildContent>
+                    <dl class="widget-detail-list">
+                        <div>
+                            <dt>Restaurant</dt>
+                            <dd>@_restaurant.Name</dd>
+                        </div>
+                        <div>
+                            <dt>Restaurant-id</dt>
+                            <dd><code>@_restaurant.Id</code></dd>
+                        </div>
+                        <div>
+                            <dt>Widget host</dt>
+                            <dd><code>@WidgetHost</code></dd>
+                        </div>
+                    </dl>
+                </ChildContent>
+            </SectionCard>
+
+            <SectionCard Title="Zo werkt het"
+                         Subtitle="De widget blijft gekoppeld aan dezelfde centrale reserveringsomgeving.">
+                <ChildContent>
+                    <ol class="widget-steps">
+                        <li><span>1</span><div><strong>Plaats de code</strong><p>Voeg de HTML-snippet of WordPress-shortcode toe.</p></div></li>
+                        <li><span>2</span><div><strong>De widget schaalt automatisch</strong><p>De hoogte past zich aan tijdens laden, validatie en bevestiging.</p></div></li>
+                        <li><span>3</span><div><strong>Reserveringen komen direct binnen</strong><p>Alle gegevens blijven in Zambiq en verschijnen in je dashboard.</p></div></li>
+                    </ol>
+                </ChildContent>
+            </SectionCard>
+        </div>
+
+        <SectionCard Title="Live preview"
+                     Subtitle="Zo verschijnt de compacte reserveringswidget op een website."
+                     CssClass="widget-preview-card">
+            <Actions>
+                <a class="btn btn-quiet btn-sm" href="@EmbedUrl" target="_blank" rel="noopener">Embed openen</a>
+            </Actions>
+            <ChildContent>
+                <div class="widget-preview-browser">
+                    <div class="widget-preview-toolbar" aria-hidden="true">
+                        <span></span><span></span><span></span>
+                        <div>@WidgetHost</div>
+                    </div>
+                    <iframe src="@EmbedPreviewUrl"
+                            title="Preview van de reserveringswidget voor @_restaurant.Name"
+                            loading="lazy"></iframe>
+                </div>
+            </ChildContent>
+        </SectionCard>
+    </div>
+}
+
+@code {
+    private RestaurantDto? _restaurant;
+    private bool _isLoading = true;
+    private bool _copySucceeded;
+    private bool _isSavingBranding;
+    private bool _isUploadingLogo;
+    private bool _isDeletingLogo;
+    private bool _brandingSaveSucceeded;
+    private bool _isSavingOrigins;
+    private bool _originSaveSucceeded;
+    private string? _errorMessage;
+    private string? _copyMessage;
+    private string? _brandingMessage;
+    private string? _originMessage;
+    private string _primaryColor = DefaultPrimaryColor;
+    private string _accentColor = DefaultAccentColor;
+    private string? _welcomeText;
+    private string? _logoUrl;
+    private string _newOrigin = string.Empty;
+    private List<string> _origins = [];
+    private int _previewVersion;
+
+    private const string DefaultPrimaryColor = "#2f6b4f";
+    private const string DefaultAccentColor = "#d9a05b";
+    private const long MaximumLogoFileSize = 2 * 1024 * 1024;
+    private string WidgetHost => new Uri(Navigation.BaseUri).GetLeftPart(UriPartial.Authority);
+    private string EmbedUrl => $"{WidgetHost}/embed/booking/{_restaurant!.Id}";
+    private string EmbedPreviewUrl => $"{EmbedUrl}?preview={_previewVersion}";
+    private string PublicBookingUrl => $"{WidgetHost}/booking/{_restaurant!.Id}";
+    private string BrandingSwatchStyle =>
+        $"--preview-primary: {_primaryColor}; --preview-accent: {_accentColor};";
+    private string WordPressSnippet => $"[zambiq_booking restaurant=\"{_restaurant!.Id}\"]";
+    private string HtmlSnippet =>
+        $"<div data-zambiq-restaurant=\"{_restaurant!.Id}\"></div>{Environment.NewLine}" +
+        $"<script src=\"{WidgetHost}/widget.js\" async></script>";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _restaurant = await RestaurantApi.GetCurrentAsync();
+            var settings = await WidgetSettingsApi.GetCurrentAsync();
+            _origins = settings.Origins.OrderBy(origin => origin).ToList();
+            var branding = await WidgetSettingsApi.GetCurrentBrandingAsync();
+            ApplyBranding(branding);
+        }
+        catch (ApiClientException exception)
+        {
+            _errorMessage = exception.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private Task CopyHtmlAsync() => CopyAsync(HtmlSnippet, "De widgetcode is gekopieerd.");
+
+    private Task CopyWordPressAsync() => CopyAsync(WordPressSnippet, "De WordPress-shortcode is gekopieerd.");
+
+    private async Task UploadLogoAsync(InputFileChangeEventArgs eventArgs)
+    {
+        _isUploadingLogo = true;
+        _brandingMessage = null;
+
+        try
+        {
+            var file = eventArgs.File;
+            if (file.Size > MaximumLogoFileSize)
+            {
+                _brandingSaveSucceeded = false;
+                _brandingMessage = "Het logo mag maximaal 2 MB groot zijn.";
+                return;
+            }
+
+            await using var content = file.OpenReadStream(MaximumLogoFileSize);
+            var branding = await WidgetSettingsApi.UploadLogoAsync(
+                content,
+                file.Name,
+                file.ContentType);
+            ApplyBranding(branding);
+            _brandingSaveSucceeded = true;
+            _brandingMessage = "Het logo is geupload en direct actief.";
+            _previewVersion++;
+        }
+        catch (ApiClientException exception)
+        {
+            _brandingSaveSucceeded = false;
+            _brandingMessage = exception.Message;
+        }
+        catch (IOException)
+        {
+            _brandingSaveSucceeded = false;
+            _brandingMessage = "Het logo kon niet worden gelezen. Kies een andere afbeelding.";
+        }
+        finally
+        {
+            _isUploadingLogo = false;
+        }
+    }
+
+    private async Task DeleteLogoAsync()
+    {
+        _isDeletingLogo = true;
+        _brandingMessage = null;
+
+        try
+        {
+            var branding = await WidgetSettingsApi.DeleteLogoAsync();
+            ApplyBranding(branding);
+            _brandingSaveSucceeded = true;
+            _brandingMessage = "Het logo is verwijderd. De widget gebruikt weer het monogram.";
+            _previewVersion++;
+        }
+        catch (ApiClientException exception)
+        {
+            _brandingSaveSucceeded = false;
+            _brandingMessage = exception.Message;
+        }
+        finally
+        {
+            _isDeletingLogo = false;
+        }
+    }
+
+    private async Task SaveBrandingAsync()
+    {
+        _isSavingBranding = true;
+        _brandingMessage = null;
+
+        try
+        {
+            var branding = await WidgetSettingsApi.SetCurrentBrandingAsync(
+                new SetWidgetBrandingRequest(
+                    _primaryColor,
+                    _accentColor,
+                    _welcomeText,
+                    _logoUrl));
+            ApplyBranding(branding);
+            _brandingSaveSucceeded = true;
+            _brandingMessage = "De uitstraling is opgeslagen en direct actief.";
+            _previewVersion++;
+        }
+        catch (ApiClientException exception)
+        {
+            _brandingSaveSucceeded = false;
+            _brandingMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingBranding = false;
+        }
+    }
+
+    private void ResetBranding()
+    {
+        _primaryColor = DefaultPrimaryColor;
+        _accentColor = DefaultAccentColor;
+        _welcomeText = null;
+        _logoUrl = null;
+        _brandingMessage = "De standaardkleuren staan klaar. Sla op om ze actief te maken.";
+        _brandingSaveSucceeded = true;
+    }
+
+    private void ApplyBranding(WidgetBrandingDto branding)
+    {
+        _primaryColor = branding.PrimaryColor;
+        _accentColor = branding.AccentColor;
+        _welcomeText = branding.WelcomeText;
+        _logoUrl = branding.LogoUrl;
+    }
+
+    private string GetRestaurantInitial()
+    {
+        return string.IsNullOrWhiteSpace(_restaurant?.Name)
+            ? "R"
+            : char.ToUpperInvariant(_restaurant.Name.Trim()[0]).ToString();
+    }
+
+    private void AddOrigin()
+    {
+        _originMessage = null;
+
+        if (!TryNormalizeOrigin(_newOrigin, out var normalizedOrigin))
+        {
+            _originSaveSucceeded = false;
+            _originMessage = "Gebruik een volledige website-origin zonder pad, bijvoorbeeld https://restaurant.nl.";
+            return;
+        }
+
+        if (!_origins.Contains(normalizedOrigin, StringComparer.Ordinal))
+        {
+            _origins.Add(normalizedOrigin);
+            _origins.Sort(StringComparer.Ordinal);
+        }
+
+        _newOrigin = string.Empty;
+    }
+
+    private void RemoveOrigin(string origin)
+    {
+        _origins.Remove(origin);
+        _originMessage = null;
+    }
+
+    private async Task SaveOriginsAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_newOrigin))
+        {
+            AddOrigin();
+            if (!string.IsNullOrWhiteSpace(_originMessage))
+            {
+                return;
+            }
+        }
+
+        _isSavingOrigins = true;
+        _originMessage = null;
+
+        try
+        {
+            var settings = await WidgetSettingsApi.SetCurrentAsync(
+                new SetWidgetOriginsRequest(_origins));
+            _origins = settings.Origins.OrderBy(origin => origin).ToList();
+            _originSaveSucceeded = true;
+            _originMessage = "De toegestane websites zijn opgeslagen en direct actief.";
+        }
+        catch (ApiClientException exception)
+        {
+            _originSaveSucceeded = false;
+            _originMessage = exception.Message;
+        }
+        finally
+        {
+            _isSavingOrigins = false;
+        }
+    }
+
+    private async Task CopyAsync(string value, string successMessage)
+    {
+        _copySucceeded = await JS.InvokeAsync<bool>("ZambiqClipboard.copy", value);
+        _copyMessage = _copySucceeded
+            ? successMessage
+            : "Kopieren lukte niet. Selecteer de code handmatig.";
+    }
+
+    private static bool TryNormalizeOrigin(string value, out string normalizedOrigin)
+    {
+        if (Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+            string.IsNullOrEmpty(uri.UserInfo) &&
+            uri.AbsolutePath == "/" &&
+            string.IsNullOrEmpty(uri.Query) &&
+            string.IsNullOrEmpty(uri.Fragment))
+        {
+            normalizedOrigin = uri.GetLeftPart(UriPartial.Authority).ToLowerInvariant();
+            return true;
+        }
+
+        normalizedOrigin = string.Empty;
+        return false;
+    }
+}

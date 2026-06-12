@@ -1,0 +1,165 @@
+@using System.Globalization
+
+@if (Points is null || Points.Count == 0 || (_maxValue == 0m))
+{
+    <div class="trend-chart-empty">Nog geen boekingen in deze periode.</div>
+}
+else
+{
+    <figure class="trend-chart">
+        <div class="chart-legend" aria-hidden="true">
+            <span class="chart-legend-item"><i class="chart-legend-swatch chart-swatch-revenue"></i> Omzet</span>
+            <span class="chart-legend-item"><i class="chart-legend-swatch chart-swatch-expenses"></i> Kosten</span>
+        </div>
+
+        <svg viewBox="0 0 @ViewWidth @ViewHeight"
+             preserveAspectRatio="xMidYMid meet"
+             role="img"
+             aria-label="@AriaLabel">
+            @* Gridlines + y-axis amounts *@
+            @foreach (var line in GridLines)
+            {
+                <line x1="@F(PadLeft)" y1="@F(line.Y)" x2="@F(ViewWidth - PadRight)" y2="@F(line.Y)" class="trend-grid-line" />
+                @SvgText(PadLeft - 8, line.Y + 4, "end", line.Label)
+            }
+
+            @* Bars *@
+            @for (var index = 0; index < Points!.Count; index++)
+            {
+                var point = Points[index];
+                var groupCenter = GroupCenter(index);
+                var revenueHeight = BarHeight(point.Revenue);
+                var expenseHeight = BarHeight(point.Expenses);
+
+                <rect x="@F(groupCenter - BarWidth - BarGap / 2)"
+                      y="@F(BaselineY - revenueHeight)"
+                      width="@F(BarWidth)"
+                      height="@F(revenueHeight)"
+                      rx="2"
+                      class="trend-bar-revenue">
+                    <title>@point.Label · Omzet @Money(point.Revenue)</title>
+                </rect>
+                <rect x="@F(groupCenter + BarGap / 2)"
+                      y="@F(BaselineY - expenseHeight)"
+                      width="@F(BarWidth)"
+                      height="@F(expenseHeight)"
+                      rx="2"
+                      class="trend-bar-expenses">
+                    <title>@point.Label · Kosten @Money(point.Expenses)</title>
+                </rect>
+
+                @if (ShowLabel(index))
+                {
+                    @SvgText(groupCenter, ViewHeight - 8, "middle", point.Label)
+                }
+            }
+
+            <line x1="@F(PadLeft)" y1="@F(BaselineY)" x2="@F(ViewWidth - PadRight)" y2="@F(BaselineY)" class="trend-baseline" />
+        </svg>
+    </figure>
+}
+
+@code {
+    private const double ViewWidth = 720;
+    private const double ViewHeight = 260;
+    private const double PadLeft = 58;
+    private const double PadRight = 10;
+    private const double PadTop = 14;
+    private const double PadBottom = 30;
+    private const double BarGap = 3;
+
+    private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-NL");
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<AccountingTrendPointDto>? Points { get; set; }
+
+    private decimal _maxValue;
+    private decimal _niceMax;
+
+    protected override void OnParametersSet()
+    {
+        _maxValue = Points is null || Points.Count == 0
+            ? 0m
+            : Points.Max(point => Math.Max(point.Revenue, point.Expenses));
+        _niceMax = NiceCeiling(_maxValue);
+    }
+
+    private double BaselineY => ViewHeight - PadBottom;
+
+    private double PlotWidth => ViewWidth - PadLeft - PadRight;
+
+    private double PlotHeight => ViewHeight - PadTop - PadBottom;
+
+    private double BarWidth => Math.Min(22, PlotWidth / Math.Max(1, Points!.Count) * 0.3);
+
+    private double GroupCenter(int index) =>
+        PadLeft + PlotWidth / Points!.Count * (index + 0.5);
+
+    private double BarHeight(decimal value) =>
+        _niceMax == 0m ? 0 : (double)(value / _niceMax) * PlotHeight;
+
+    private bool ShowLabel(int index)
+    {
+        var step = (int)Math.Ceiling(Points!.Count / 12.0);
+        return index % step == 0;
+    }
+
+    private IEnumerable<(double Y, string Label)> GridLines
+    {
+        get
+        {
+            for (var i = 0; i <= 3; i++)
+            {
+                var fraction = i / 3.0;
+                var value = _niceMax * (decimal)fraction;
+                yield return (BaselineY - PlotHeight * fraction, CompactEuro(value));
+            }
+        }
+    }
+
+    private string AriaLabel
+    {
+        get
+        {
+            if (Points is null || Points.Count == 0)
+            {
+                return "Grafiek zonder gegevens";
+            }
+
+            var revenue = Points.Sum(point => point.Revenue);
+            var expenses = Points.Sum(point => point.Expenses);
+            return $"Verloop van omzet en kosten van {Points[0].Label} tot {Points[^1].Label}. " +
+                   $"Totale omzet {Money(revenue)}, totale kosten {Money(expenses)}.";
+        }
+    }
+
+    private static decimal NiceCeiling(decimal value)
+    {
+        if (value <= 0m)
+        {
+            return 0m;
+        }
+
+        var magnitude = (decimal)Math.Pow(10, Math.Floor(Math.Log10((double)value)));
+        var normalized = value / magnitude;
+        var nice = normalized <= 1m ? 1m : normalized <= 2m ? 2m : normalized <= 5m ? 5m : 10m;
+        return nice * magnitude;
+    }
+
+    private static string CompactEuro(decimal value)
+    {
+        if (Math.Abs(value) >= 1000m)
+        {
+            return "€ " + (value / 1000m).ToString("0.#", Dutch) + "k";
+        }
+
+        return "€ " + value.ToString("0", Dutch);
+    }
+
+    private static string Money(decimal value) => value.ToString("C", Dutch);
+
+    private static string F(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static MarkupString SvgText(double x, double y, string anchor, string content) =>
+        new($"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" class=\"trend-axis-text\">{System.Net.WebUtility.HtmlEncode(content)}</text>");
+}
